@@ -1,0 +1,7 @@
+var u = 20 : int64;
+var b = true : bool;
+
+proc main() {
+  var u = u * u == 400 : bool;
+  print u;
+}

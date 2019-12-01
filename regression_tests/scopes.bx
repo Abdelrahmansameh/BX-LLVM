@@ -1,0 +1,21 @@
+var u = 20 : int64;
+var b = true : bool;
+
+proc main() {
+  var x = 10 : int64;
+  {
+    print x;
+    x = x + u;
+    var x = b : bool;
+    print x;
+    {
+      var x = 42 : int64;
+    }
+  }
+  print x;
+  {
+    var x = x + 10 : int64;
+    print x;
+  }
+  print x;
+}

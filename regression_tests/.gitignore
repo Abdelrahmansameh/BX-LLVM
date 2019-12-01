@@ -1,0 +1,9 @@
+*.c
+*.s
+*.exe
+*.rtl
+*.ertl
+*.parsed
+*.expected
+*.actual
+students/
