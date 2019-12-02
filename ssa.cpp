@@ -1,4 +1,4 @@
-#include "ertl.h"
+#include "ssa.h"
 #include "rtl.h"
 
 namespace bx {
@@ -8,11 +8,6 @@ std::ostream &operator<<(std::ostream &out, Pseudo const &r){
     return out << r.id << "." << r.version;
 }
 
-// Mach::RBP is treated specially
-const Mach callee_saves[5] = {Mach::RBX, Mach::R12, Mach::R13, Mach::R14,
-                              Mach::R15};
-const Mach input_regs[6] = {Mach::RDI, Mach::RSI, Mach::RDX,
-                            Mach::RCX, Mach::R8,  Mach::R9};
 
 const std::map<Unop::Code, char const *> Unop::code_map{
     {Unop::Code::NOT, "not"}, {Unop::Code::NEG, "neg"}};
@@ -38,28 +33,11 @@ const std::map<Bbranch::Code, char const *> Bbranch::code_map{
     {Bbranch::Code::JGE, "jge"}, {Bbranch::Code::JNGE, "jnge"},
 };
 
-char const *to_string(Mach m) {
-  switch (m) {
-    // clang-format off
-#define CASE(C, s) case Mach::C: return "%" # s;
-  CASE(RAX, rax) CASE(RBX, rbx) CASE(RCX, rcx) CASE(RDX, rdx)
-  CASE(RBP, rbp) CASE(RDI, rdi) CASE(RSI, rsi) CASE(RSP, rsp)
-  CASE(R8,  r8)  CASE(R9,  r9)  CASE(R10, r10) CASE(R11, r11)
-  CASE(R12, r12) CASE(R13, r13) CASE(R14, r14) CASE(R15, r15)
-#undef CASE
-    // clang-format on
-  }
-  return nullptr;
-}
-
-std::ostream &operator<<(std::ostream &out, Mach m) {
-  return out << to_string(m);
-}
 
 std::ostream &operator<<(std::ostream &out, BBlock const &blc) {
   out << "\n----\n";
-  for (auto const &in_lab : blc.schedule)
-    out << in_lab << ": " << *(blc.body.at(in_lab)) << '\n';
+  for (auto const &instr : blc.body)
+    out << *instr << '\n';
   out << "\nleave: ";
   for (auto const &out_lab : blc.outlabels) 
     out << out_lab << ",";

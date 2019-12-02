@@ -6,6 +6,7 @@
 
 #include "ast.h"
 #include "rtl.h"
+#include "ertl.h"
 
 /** This defines the SSA representation of ERTL */
 
@@ -35,7 +36,7 @@ struct Pseudo {
 };
 std::ostream &operator<<(std::ostream &out, Pseudo const &r);
 
-enum class Mach : int8_t {
+/*enum class Mach : int8_t {
   // clang-format off
   RAX, RBX, RCX, RDX, RBP, RDI, RSI, RSP,
   R8, R9, R10, R11, R12, R13, R14, R15
@@ -43,9 +44,7 @@ enum class Mach : int8_t {
 };
 char const *to_string(Mach m);
 std::ostream &operator<<(std::ostream &out, Mach m);
-extern const ertl::Mach callee_saves[5];
-extern const ertl::Mach input_regs[6];
-
+*/
 struct Instr;
 using InstrPtr = std::unique_ptr<Instr const>;
 
@@ -134,26 +133,26 @@ struct Copy : public Instr {
 };
 
 struct GetMach : public Instr {
-  Mach src;
+  ertl::Mach src;
   Pseudo dest;
 
   std::ostream &print(std::ostream &out) const override {
     return out << "copy " << src << ", " << dest;
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(GetMach, Mach src, Pseudo dest)
+  CONSTRUCTOR(GetMach, ertl::Mach src, Pseudo dest)
       : src{src}, dest{dest} {}
 };
 
 struct SetMach : public Instr {
   Pseudo src;
-  Mach dest;
+  ertl::Mach dest;
 
   std::ostream &print(std::ostream &out) const override {
     return out << "copy " << src << ", " << dest;
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(SetMach, Pseudo src, Mach dest)
+  CONSTRUCTOR(SetMach, Pseudo src, ertl::Mach dest)
       : src{src}, dest{dest} {}
 };
 
@@ -332,17 +331,7 @@ struct Delframe : public Instr {
 
 struct BBlock{
     std::vector<Label> outlabels;
-    rtl::LabelMap<InstrPtr> body;
-    std::vector<Label> schedule; // the order in which the labels are scheduled
-    void add_instr(Label lab, InstrPtr instr) {
-    if (body.find(lab) != body.end()) {
-      std::cerr << "Repeated in-label: " << lab.id << '\n';
-      std::cerr << "Trying: " << lab << ": " << *instr << '\n';
-      throw std::runtime_error("repeated in-label");
-    }
-    schedule.push_back(lab);
-    body.insert_or_assign(lab, std::move(instr));
-  }
+    std::vector<InstrPtr> body;
 };
 std::ostream &operator<<(std::ostream &out, BBlock const &blc);
 
@@ -350,18 +339,18 @@ std::ostream &operator<<(std::ostream &out, BBlock const &blc);
 struct Callable {
   std::string name;
   Label enter, leave;
-  std::vector<std::pair<Mach, Pseudo>> callee_saves;
+  std::vector<std::pair<ertl::Mach, Pseudo>> callee_saves;
   rtl::LabelMap<BBlock> body;
   std::vector<Label> schedule; // the order in which the labels are scheduled
   explicit Callable(std::string name) : name{name} {}
-  void add_instr(Label lab, BBlock block) {
-    if (body.find(lab) != body.end()) {
+  void add_block(Label lab, BBlock block) {
+    /*if (body.find(lab) != body.end()) {
       std::cerr << "Repeated in-label: " << lab.id << '\n';
-     // std::cerr << "Trying: " << lab << ": " << block << '\n';
+      std::cerr << "Trying: " << lab << ": " << block << '\n';
       throw std::runtime_error("repeated in-label");
-    }
-    schedule.push_back(lab);
-    body.insert_or_assign(lab, std::move(block));
+    }*/
+    //schedule.push_back(lab);
+    //body.insert_or_assign(lab, std::move(block));
   }
 };
 std::ostream &operator<<(std::ostream &out, Callable const &cbl);

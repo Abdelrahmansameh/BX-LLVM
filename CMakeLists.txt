@@ -13,7 +13,9 @@ set(bx-SRC
   ${PROJECT_SOURCE_DIR}/ast_rtl.cpp
   ${PROJECT_SOURCE_DIR}/ertl.cpp
   ${PROJECT_SOURCE_DIR}/rtl_ertl.cpp
+  ${PROJECT_SOURCE_DIR}/ssa.cpp
   #${PROJECT_SOURCE_DIR}/amd64.cpp
+  ${PROJECT_SOURCE_DIR}/ertl_ssa.cpp
   #${PROJECT_SOURCE_DIR}/ertl_asm.cpp
   ${PROJECT_SOURCE_DIR}/main.cpp
 )
