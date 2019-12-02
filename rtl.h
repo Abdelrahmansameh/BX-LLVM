@@ -14,8 +14,8 @@
 #ifndef CONSTRUCTOR
 #define CONSTRUCTOR(Cls, ...)                                                  \
   template <typename... Args>                                                  \
-  static std::unique_ptr<Cls const> make(Args &&... args) {                    \
-    return std::unique_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
+  static std::shared_ptr<Cls const> make(Args &&... args) {                    \
+    return std::shared_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
   }                                                                            \
                                                                                \
 private:                                                                       \
@@ -61,7 +61,7 @@ extern int last_pseudo;
 inline rtl::Pseudo fresh_pseudo() { return rtl::Pseudo{last_pseudo++}; }
 
 struct Instr;
-using InstrPtr = std::unique_ptr<Instr const>;
+using InstrPtr = std::shared_ptr<Instr const>;
 
 struct Move;
 struct Copy;

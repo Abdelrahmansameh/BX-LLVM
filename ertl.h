@@ -12,8 +12,8 @@
 #ifndef CONSTRUCTOR
 #define CONSTRUCTOR(Cls, ...)                                                  \
   template <typename... Args>                                                  \
-  static std::unique_ptr<Cls const> make(Args &&... args) {                    \
-    return std::unique_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
+  static std::shared_ptr<Cls const> make(Args &&... args) {                    \
+    return std::shared_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
   }                                                                            \
                                                                                \
 private:                                                                       \
@@ -38,7 +38,7 @@ extern const ertl::Mach callee_saves[5];
 extern const ertl::Mach input_regs[6];
 
 struct Instr;
-using InstrPtr = std::unique_ptr<Instr const>;
+using InstrPtr = std::shared_ptr<Instr const>;
 
 struct Move;
 struct Copy;

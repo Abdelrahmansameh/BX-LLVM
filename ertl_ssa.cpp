@@ -40,8 +40,9 @@ public:
 
     for (auto &l : leaders){
         ertl_cbl.body.at(l)->accept(l, *this);
-        ssa::BBlock::make(outlabels, body);
-        //ssa_cbl.add_block(l, ssa::BBlock::make(outlabels, body));
+        ssa_cbl.add_block(l, ssa::BBlock::make(outlabels, body));
+        body.clear();
+        outlabels.clear();
       }
   }
 
@@ -130,7 +131,7 @@ public:
   }
 
   void visit(rtl::Label const &, ertl::Ubranch const &ub) override {
-  // Ubranch
+    
   }
 
   void visit(rtl::Label const &, ertl::Bbranch const &bb) override {

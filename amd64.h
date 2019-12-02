@@ -78,7 +78,7 @@ struct Asm {
    */
   const std::string repr_template;
 
-  using ptr = std::unique_ptr<Asm>;
+  using ptr = std::shared_ptr<Asm>;
 
 private:
   /**
@@ -91,21 +91,21 @@ private:
 
 public:
   static ptr directive(std::string const &directive) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{}, {}, {}, std::string{"\t"} + directive});
   }
 
   static ptr set_label(std::string const &label) {
-    return std::unique_ptr<Asm>(new Asm{{}, {}, {}, label + ":"});
+    return std::shared_ptr<Asm>(new Asm{{}, {}, {}, label + ":"});
   }
 
 #define ARITH_BINOP(mnemonic)                                                  \
   static ptr mnemonic##q(int64_t imm, Pseudo const &dest) {                    \
     std::string repr = "\t" #mnemonic "q $" + std::to_string(imm) + ", `d0";   \
-    return std::unique_ptr<Asm>(new Asm{{}, {dest}, {}, repr});                \
+    return std::shared_ptr<Asm>(new Asm{{}, {dest}, {}, repr});                \
   }                                                                            \
   static ptr mnemonic##q(Pseudo const &src, Pseudo const &dest) {              \
-    return std::unique_ptr<Asm>(                                               \
+    return std::shared_ptr<Asm>(                                               \
         new Asm{{src}, {dest}, {}, "\t" #mnemonic "q `s0, `d0"});              \
   }
   ARITH_BINOP(mov)
@@ -118,17 +118,17 @@ public:
 #undef ARITH_BINOP
 
   static ptr movq_reg2mem(Pseudo const &src, std::string const &mem_lab) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{src}, {}, {}, "\tmovq `s0, " + mem_lab + "(%rip)"});
   }
 
   static ptr movq_mem2reg(std::string const &mem_lab, Pseudo const &dest) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{}, {dest}, {}, "\tmovq " + mem_lab + "(%rip), `d0"});
   }
 
   static ptr movq_reg2addr(Pseudo const &src, int offset, Pseudo const &addr) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{src, addr},
                 {},
                 {},
@@ -136,24 +136,24 @@ public:
   }
 
   static ptr movq_addr2reg(int offset, Pseudo const &addr, Pseudo const &dest) {
-    return std::unique_ptr<Asm>(new Asm{
+    return std::shared_ptr<Asm>(new Asm{
         {addr}, {dest}, {}, "\tmovq " + std::to_string(offset) + "(`s0), `d0"});
   }
 
   static ptr cqo() {
-    return std::unique_ptr<Asm>(new Asm{
+    return std::shared_ptr<Asm>(new Asm{
         {Pseudo{reg::rax}}, {Pseudo{reg::rax}, Pseudo{reg::rdx}}, {}, "\tcqo"});
   }
 
   static ptr imulq(Pseudo const &factor) {
-    return std::unique_ptr<Asm>(new Asm{{factor, Pseudo{reg::rax}},
+    return std::shared_ptr<Asm>(new Asm{{factor, Pseudo{reg::rax}},
                                         {Pseudo{reg::rax}, Pseudo{reg::rdx}},
                                         {},
                                         "\timulq `s0"});
   }
 
   static ptr idivq(Pseudo const &divisor) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{divisor, Pseudo{reg::rax}, Pseudo{reg::rdx}},
                 {Pseudo{reg::rax}, Pseudo{reg::rdx}},
                 {},
@@ -161,18 +161,18 @@ public:
   }
 
   static ptr cmpq(Pseudo const &arg1, Pseudo const &arg2) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{arg1, arg2}, {}, {}, "\tcmpq `s0, `s1"});
   }
 
   static ptr cmpq(int32_t imm, Pseudo const &arg) {
     std::string repr = "\tcmpq $" + std::to_string(imm) + ", `s0";
-    return std::unique_ptr<Asm>(new Asm{{arg}, {}, {}, repr});
+    return std::shared_ptr<Asm>(new Asm{{arg}, {}, {}, repr});
   }
 
 #define ARITH_UNOP(mnemonic)                                                   \
   static ptr mnemonic##q(Pseudo const &arg) {                                  \
-    return std::unique_ptr<Asm>(                                               \
+    return std::shared_ptr<Asm>(                                               \
         new Asm{{arg}, {arg}, {}, "\t" #mnemonic "q `s0"});                    \
   }
   ARITH_UNOP(neg)
@@ -180,16 +180,16 @@ public:
 #undef ARITH_UNOP
 
   static ptr pushq(Pseudo const &arg) {
-    return std::unique_ptr<Asm>(new Asm{{arg}, {}, {}, "\tpushq `s0"});
+    return std::shared_ptr<Asm>(new Asm{{arg}, {}, {}, "\tpushq `s0"});
   }
 
   static ptr popq(Pseudo const &arg) {
-    return std::unique_ptr<Asm>(new Asm{{}, {arg}, {}, "\tpopq `d0"});
+    return std::shared_ptr<Asm>(new Asm{{}, {arg}, {}, "\tpopq `d0"});
   }
 
 #define SHIFTOP(mnemonic)                                                      \
   static ptr mnemonic##q(Pseudo const &dest) {                                 \
-    return std::unique_ptr<Asm>(                                               \
+    return std::shared_ptr<Asm>(                                               \
         new Asm{{Pseudo{reg::rcx}}, {dest}, {}, "\t" #mnemonic "q %cl, `d0"}); \
   }
   SHIFTOP(sar)
@@ -199,7 +199,7 @@ public:
 
 #define BRANCH_OP(mnemonic)                                                    \
   static ptr mnemonic(Label const &destination) {                              \
-    return std::unique_ptr<Asm>(                                               \
+    return std::shared_ptr<Asm>(                                               \
         new Asm{{}, {}, {destination}, "\t" #mnemonic " `j0"});                \
   }
   BRANCH_OP(jmp)
@@ -212,12 +212,12 @@ public:
 #undef BRANCH_OP
 
   static ptr call(Label const &func) {
-    return std::unique_ptr<Asm>(
+    return std::shared_ptr<Asm>(
         new Asm{{}, {Pseudo{reg::rax}}, {}, "\tcall " + func});
   }
 
   static ptr ret() {
-    return std::unique_ptr<Asm>(new Asm{{}, {}, {}, "\tret"});
+    return std::shared_ptr<Asm>(new Asm{{}, {}, {}, "\tret"});
   }
 };
 

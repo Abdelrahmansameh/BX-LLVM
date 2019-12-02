@@ -46,7 +46,7 @@ private:
     return std::string{".L"} + funcname + '.' + std::to_string(rtl_lab.id);
   }
 
-  void append(std::unique_ptr<Asm> line) { body.push_back(std::move(line)); }
+  void append(std::shared_ptr<Asm> line) { body.push_back(std::move(line)); }
 
 public:
   void append_label(ertl::Label const &rtl_lab) {

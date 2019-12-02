@@ -31,7 +31,7 @@ struct VarInfo {
 class TypeChecker : public StmtVisitor, public ExprVisitor {
 private:
   source::Program &source_prog;
-  using VMap = std::map<std::string, std::unique_ptr<VarInfo>>;
+  using VMap = std::map<std::string, std::shared_ptr<VarInfo>>;
   std::vector<VMap> symbol_map;
   int current_depth;
   Type current_return_ty = Type::UNKNOWN;
@@ -52,7 +52,7 @@ public:
     VMap gv_map;
     for (auto const &gv : source_prog.global_vars)
       gv_map.insert_or_assign(gv.first,
-                              std::make_unique<VarInfo>(gv.second->ty, 0));
+                              std::make_shared<VarInfo>(gv.second->ty, 0));
     symbol_map.push_back(std::move(gv_map));
   }
 
@@ -62,7 +62,7 @@ public:
     VMap map;
     for (auto const &param : cbl.args)
       map.insert_or_assign(param.first,
-                           std::make_unique<VarInfo>(param.second, 1));
+                           std::make_shared<VarInfo>(param.second, 1));
     symbol_map.push_back(std::move(map));
     current_return_ty = cbl.return_ty;
     current_depth = 1;
@@ -107,7 +107,7 @@ public:
       panic("Variable " + dec.var + " already declared in this scope");
     visit_checked(dec.init, dec.ty);
     map.insert_or_assign(dec.var,
-                         std::make_unique<VarInfo>(dec.ty, current_depth));
+                         std::make_shared<VarInfo>(dec.ty, current_depth));
   }
 
   void visit(Eval const &e) override { e.expr->accept(*this); }

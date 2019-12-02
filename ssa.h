@@ -13,8 +13,8 @@
 #ifndef CONSTRUCTOR
 #define CONSTRUCTOR(Cls, ...)                                                  \
   template <typename... Args>                                                  \
-  static std::unique_ptr<Cls const> make(Args &&... args) {                    \
-    return std::unique_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
+  static std::shared_ptr<Cls> make(Args &&... args) {                    \
+    return std::shared_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
   }                                                                            \
                                                                                \
 private:                                                                       \
@@ -46,7 +46,7 @@ char const *to_string(Mach m);
 std::ostream &operator<<(std::ostream &out, Mach m);
 */
 struct Instr;
-using InstrPtr = std::unique_ptr<Instr const>;
+using InstrPtr = std::shared_ptr<Instr const>;
 
 struct BBlock;
 
@@ -72,7 +72,7 @@ struct Delframe;
 struct InstrVisitor {
   virtual ~InstrVisitor() = default;
 #define VISIT_FUNCTION(caseclass)                                              \
-  virtual void visit(Label const &, caseclass const &) = 0
+  virtual void visit(Label const &, caseclass &) = 0
   VISIT_FUNCTION(Move);
   VISIT_FUNCTION(Copy);
   VISIT_FUNCTION(GetMach);
@@ -97,7 +97,7 @@ struct InstrVisitor {
 struct Instr {
   virtual ~Instr() = default;
   virtual std::ostream &print(std::ostream &out) const = 0;
-  virtual void accept(Label const &lab, InstrVisitor &vis) const = 0;
+  virtual void accept(Label const &lab, InstrVisitor &vis) = 0;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Instr const &i) {
@@ -105,7 +105,7 @@ inline std::ostream &operator<<(std::ostream &out, Instr const &i) {
 }
 
 #define MAKE_VISITABLE                                                         \
-  void accept(Label const &lab, InstrVisitor &vis) const final {               \
+  void accept(Label const &lab, InstrVisitor &vis) final {               \
     vis.visit(lab, *this);                                                     \
   }
 
@@ -334,13 +334,13 @@ struct BBlock{
     std::vector<InstrPtr> body;
     CONSTRUCTOR(BBlock, std::vector<Label> outlabels, std::vector<InstrPtr> body) {
       this->outlabels = outlabels;
-      for (auto &i : std::move(body)){
-        this->body.push_back(std::move(i));
+      for (auto i : body){
+        this->body.push_back(i);
       }
     }
 };
 std::ostream &operator<<(std::ostream &out, BBlock const &blc);
-using BBlockPtr = std::unique_ptr<BBlock const>;
+using BBlockPtr = std::shared_ptr<BBlock const>;
 
 
 struct Callable {

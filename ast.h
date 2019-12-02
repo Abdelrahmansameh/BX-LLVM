@@ -9,10 +9,10 @@
 #ifndef DECLARE_HEAP_STRUCT
 #define DECLARE_HEAP_STRUCT(Cls)                                               \
   struct Cls;                                                                  \
-  using Cls##Ptr = std::unique_ptr<Cls const>;
+  using Cls##Ptr = std::shared_ptr<Cls const>;
 #define CONSTRUCTOR(Cls, ...)                                                  \
   template <typename... Args> static Cls##Ptr make(Args &&... args) {          \
-    return std::unique_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
+    return std::shared_ptr<Cls>{new Cls(std::forward<Args>(args)...)};         \
   }                                                                            \
                                                                                \
 private:                                                                       \
@@ -89,7 +89,7 @@ struct Expr : public ASTNode {
   struct Meta {
     Type ty;
   };
-  std::unique_ptr<Meta> meta{new Meta{Type::UNKNOWN}};
+  std::shared_ptr<Meta> meta{new Meta{Type::UNKNOWN}};
   virtual int binding_priority() const { return INT_MAX; }
   virtual void accept(ExprVisitor &vis) const = 0;
 };
