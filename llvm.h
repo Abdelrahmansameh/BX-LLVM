@@ -2,7 +2,7 @@
 
 /**
  * This module defines the final concrete target of the compilation, which is
- * amd64 assembly.
+ * llvm assembly.
  */
 
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include <vector>
 
 namespace bx {
-namespace amd64 {
+namespace llvm {
 
 // Hardware features: registers and memory addresses
 
@@ -223,5 +223,5 @@ public:
 
 std::ostream &operator<<(std::ostream &out, Asm const &line);
 
-} // namespace amd64
+} // namespace llvm
 } // namespace bx

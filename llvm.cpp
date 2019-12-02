@@ -1,7 +1,7 @@
-#include "amd64.h"
+#include "llvm.h"
 
 namespace bx {
-namespace amd64 {
+namespace llvm {
 
 int Pseudo::__last_pseudo_id = 0;
 
@@ -39,5 +39,5 @@ std::ostream &operator<<(std::ostream &out, Asm const &line) {
   return out << '\n';
 }
 
-} // namespace amd64
+} // namespace llvm
 } // namespace bx
