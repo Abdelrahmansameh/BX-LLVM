@@ -128,7 +128,7 @@ public:
   }
 
   void visit(rtl::Label const &, ertl::Ubranch const &ub) override {
-
+  // Ubranch
   }
 
   void visit(rtl::Label const &, ertl::Bbranch const &bb) override {
