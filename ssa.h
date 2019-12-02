@@ -332,25 +332,32 @@ struct Delframe : public Instr {
 struct BBlock{
     std::vector<Label> outlabels;
     std::vector<InstrPtr> body;
+    CONSTRUCTOR(BBlock, std::vector<Label> outlabels, std::vector<InstrPtr> body) {
+      this->outlabels = outlabels;
+      for (auto &i : std::move(body)){
+        this->body.push_back(std::move(i));
+      }
+    }
 };
 std::ostream &operator<<(std::ostream &out, BBlock const &blc);
+using BBlockPtr = std::unique_ptr<BBlock const>;
 
 
 struct Callable {
   std::string name;
   Label enter, leave;
   std::vector<std::pair<ertl::Mach, Pseudo>> callee_saves;
-  rtl::LabelMap<BBlock> body;
+  rtl::LabelMap<BBlockPtr> body;
   std::vector<Label> schedule; // the order in which the labels are scheduled
   explicit Callable(std::string name) : name{name} {}
-  void add_block(Label lab, BBlock block) {
-    /*if (body.find(lab) != body.end()) {
+  void add_block(Label lab, BBlockPtr block) {
+    if (body.find(lab) != body.end()) {
       std::cerr << "Repeated in-label: " << lab.id << '\n';
-      std::cerr << "Trying: " << lab << ": " << block << '\n';
+      std::cerr << "Trying: " << lab << ": " << *block << '\n';
       throw std::runtime_error("repeated in-label");
-    }*/
-    //schedule.push_back(lab);
-    //body.insert_or_assign(lab, std::move(block));
+    }
+    schedule.push_back(lab);
+    body.insert_or_assign(lab, std::move(block));
   }
 };
 std::ostream &operator<<(std::ostream &out, Callable const &cbl);

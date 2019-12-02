@@ -50,7 +50,7 @@ std::ostream &operator<<(std::ostream &out, Callable const &cbl) {
   out << "\nenter: " << cbl.enter << "\nleave: " << cbl.leave;
   out << "\n----\n";
   for (auto const &in_lab : cbl.schedule)
-    out << in_lab << ": " << (cbl.body.at(in_lab)) << '\n';
+    out << in_lab << ": " << *(cbl.body.at(in_lab)) << '\n';
   return out << "END CALLABLE\n\n";
 }
 
