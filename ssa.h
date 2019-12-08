@@ -52,22 +52,15 @@ struct BBlock;
 
 struct Move;
 struct Copy;
-struct GetMach;
-struct SetMach;
 struct Load;
-struct LoadParam;
 struct Store;
 struct Binop;
 struct Unop;
 struct Bbranch;
 struct Ubranch;
 struct Goto;
-struct Push;
-struct Pop;
 struct Call;
 struct Return;
-struct Newframe;
-struct Delframe;
 
 struct InstrVisitor {
   virtual ~InstrVisitor() = default;
@@ -75,22 +68,15 @@ struct InstrVisitor {
   virtual void visit(Label const &, caseclass &) = 0
   VISIT_FUNCTION(Move);
   VISIT_FUNCTION(Copy);
-  VISIT_FUNCTION(GetMach);
-  VISIT_FUNCTION(SetMach);
   VISIT_FUNCTION(Load);
-  VISIT_FUNCTION(LoadParam);
   VISIT_FUNCTION(Store);
   VISIT_FUNCTION(Binop);
   VISIT_FUNCTION(Unop);
   VISIT_FUNCTION(Bbranch);
   VISIT_FUNCTION(Ubranch);
   VISIT_FUNCTION(Goto);
-  VISIT_FUNCTION(Push);
-  VISIT_FUNCTION(Pop);
   VISIT_FUNCTION(Call);
   VISIT_FUNCTION(Return);
-  VISIT_FUNCTION(Newframe);
-  VISIT_FUNCTION(Delframe);
 #undef VISIT_FUNCTION
 };
 
@@ -132,29 +118,6 @@ struct Copy : public Instr {
       : src{src}, dest{dest} {}
 };
 
-struct GetMach : public Instr {
-  ertl::Mach src;
-  Pseudo dest;
-
-  std::ostream &print(std::ostream &out) const override {
-    return out << "copy " << src << ", " << dest;
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(GetMach, ertl::Mach src, Pseudo dest)
-      : src{src}, dest{dest} {}
-};
-
-struct SetMach : public Instr {
-  Pseudo src;
-  ertl::Mach dest;
-
-  std::ostream &print(std::ostream &out) const override {
-    return out << "copy " << src << ", " << dest;
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(SetMach, Pseudo src, ertl::Mach dest)
-      : src{src}, dest{dest} {}
-};
 
 struct Load : public Instr {
   std::string src;
@@ -167,18 +130,6 @@ struct Load : public Instr {
   MAKE_VISITABLE
   CONSTRUCTOR(Load, std::string const &src, int offset, Pseudo dest)
       : src{src}, offset{offset}, dest{dest} {}
-};
-
-struct LoadParam : public Instr {
-  int slot;
-  Pseudo dest;
-
-  std::ostream &print(std::ostream &out) const override {
-    return out << "load_param " << slot << ", " << dest;
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(LoadParam, int slot, Pseudo dest)
-      : slot{slot}, dest{dest}{}
 };
 
 struct Store : public Instr {
@@ -271,61 +222,34 @@ struct Goto : public Instr {
   CONSTRUCTOR(Goto);
 };
 
-struct Push : public Instr {
-  Pseudo arg;
-
-  std::ostream &print(std::ostream &out) const override {
-    return out << "push " << arg;
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(Push, Pseudo arg) : arg{arg} {}
-};
-
-struct Pop : public Instr {
-  Pseudo arg;
-
-  std::ostream &print(std::ostream &out) const override {
-    return out << "pop " << arg;
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(Pop, Pseudo arg) : arg{arg} {}
-};
 
 struct Call : public Instr {
   std::string func;
-  uint8_t num_reg;
+  std::vector<Pseudo> args;
+  Pseudo ret;
 
   std::ostream &print(std::ostream &out) const override {
-    return out << "call " << func << '(' << static_cast<int>(num_reg)
-               << ")";
+    out << "call " << func << "(";
+    for (auto it = args.cbegin(); it != args.cend(); it++) {
+      out << *it;
+      if (it + 1 != args.cend())
+        out << ", ";
+    }
+    return out << "), " << ret;
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(Call, std::string func, uint8_t num_reg)
-      : func{func}, num_reg{num_reg} {}
+  CONSTRUCTOR(Call, std::string func, std::vector<Pseudo> args, Pseudo ret)
+      : func{func}, args{args}, ret{ret} {}
 };
 
 struct Return : public Instr {
-  std::ostream &print(std::ostream &out) const override {
-    return out << "return";
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(Return);
-};
+  Pseudo arg;
 
-struct Newframe : public Instr {
   std::ostream &print(std::ostream &out) const override {
-    return out << "newframe  --> ";
+    return out << "return"<< arg;
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(Newframe);
-};
-
-struct Delframe : public Instr {
-  std::ostream &print(std::ostream &out) const override {
-    return out << "delframe  --> ";
-  }
-  MAKE_VISITABLE
-  CONSTRUCTOR(Delframe);
+  CONSTRUCTOR(Return, Pseudo arg) : arg{arg} {}
 };
 #undef MAKE_VISITABLE
 
