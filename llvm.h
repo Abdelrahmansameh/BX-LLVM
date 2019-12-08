@@ -138,8 +138,8 @@ static ptr ret_void() {
         new Llvm{{}, {}, {}, repr}); 
   }
 
-static ptr ret_type(std::string const &type) {                                 
-    std::string repr = "\t ret `t ";
+static ptr ret_type(std::string const &type, std::string const &arg) {                                 
+    std::string repr = "\t ret `t "+arg;
     return std::unique_ptr<Llvm>(                                               
         new Llvm{{}, {type}, {}, repr}); 
   }
