@@ -16,212 +16,176 @@
 namespace bx {
 namespace llvm {
 
-// Hardware features: registers and memory addresses
-
 using Label = std::string;
 
-using Reg = char const *;
+// LLVM Assembly
 
-namespace reg {
-#define R(reg)                                                                 \
-  reg = Reg { "%" #reg }
-constexpr Reg R(rax), R(rbx), R(rcx), R(rdx);
-constexpr Reg R(rbp), R(rsi), R(rdi), R(rsp);
-constexpr Reg R(r8), R(r9), R(r10), R(r11);
-constexpr Reg R(r12), R(r13), R(r14), R(r15);
-constexpr Reg R(rip), R(rflags);
-#undef R
-} // namespace reg
+struct Llvm {
+  
+  /** String of "destination", name of the operation */
+  std::string dest;
 
-// Abstract assembly features: pseudos
-
-using StackSlot = int32_t;
-
-struct Pseudo {
-  const int id;
-  // A pseudo can be unbound, or allocated to either a register or a
-  // stack slot.
-  using binding_t = std::optional<std::variant<Reg, StackSlot>>;
-  binding_t binding;
-  explicit Pseudo() : id{__last_pseudo_id++}, binding{std::nullopt} {}
-  template <typename T>
-  explicit Pseudo(T const &reg)
-      : id(__last_pseudo_id++), binding{std::variant<Reg, StackSlot>{reg}} {}
-  bool operator==(Pseudo const &other) const noexcept { return id == other.id; }
-
-private:
-  static int __last_pseudo_id;
-};
-
-std::ostream &operator<<(std::ostream &out, Pseudo const &p);
-
-// Assembly
-
-struct Asm {
-  /** pseudos that are read */
-  std::vector<Pseudo> use;
-
-  /** pseudos that are written to */
-  std::vector<Pseudo> def;
+  /** String of type of arguments */
+  std::string type;
 
   /** labels that are mentioned as arguments */
-  std::vector<Label> jump_dests;
+  std::vector<Label> args;
 
-  /**
+  /*
    * The representation template. This string is allowed to contain
    * the following kinds of occurrences which are replaced automatically
    * by the elements of the use/def/jump_dests vectors above.
    *
-   *   `s0, `s1, ...     -- source pseudos (use)
-   *   `d0, `d1, ...     -- destination pseudos (def)
-   *   `j0, `j1, ...     -- jump labels (jump_dests)
+   *   `d                -- destination
+   *   `t                -- types
+   *   `a0, `a1, ...     -- arguments
    */
+  
   const std::string repr_template;
-
-  using ptr = std::shared_ptr<Asm>;
+  
+  using ptr = std::shared_ptr<Llvm>;
 
 private:
   /**
    * The constructor is hidden so that only the static methods of this class
    * can be used to build instances
    */
-  explicit Asm(std::vector<Pseudo> const &use, std::vector<Pseudo> const &def,
-               std::vector<Label> const &dests, std::string const &repr)
-      : use{use}, def{def}, jump_dests{dests}, repr_template{repr} {}
+  explicit Llvm(std::string const &dest, std::string const &type,
+               std::vector<Label> const &args, std::string const &repr)
+      : dest{dest}, type{type}, args{args}, repr_template{repr} {}
 
 public:
-  static ptr directive(std::string const &directive) {
-    return std::shared_ptr<Asm>(
-        new Asm{{}, {}, {}, std::string{"\t"} + directive});
+
+static ptr set_label(int64_t imm) {
+    return std::unique_ptr<Llvm>(new Llvm{{}, {}, {}, std::to_string(imm)  + ":"});
   }
 
-  static ptr set_label(std::string const &label) {
-    return std::shared_ptr<Asm>(new Asm{{}, {}, {}, label + ":"});
+#define ARITH_BINOP1(mnemonic)                                                                                                  \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, std::string const &arg1, std::string const &arg2) {  \
+    std::string repr = "\t %`d = " #mnemonic " nsw `t `a0, `a1";                                                                \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {{arg1, arg2}}, repr});                                               \
+  }                                                                                                                             \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, int64_t imm, std::string const &arg2)  {             \
+    std::string repr = "\t %`d = " #mnemonic " nsw `t " + std::to_string(imm) + ", `a1";                                        \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg2}, repr});                                                       \
+  }                                                                                                                             \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, std::string const &arg1, int64_t imm)  {             \
+    std::string repr = "\t %`d = " #mnemonic " nsw `t `a0, "+ std::to_string(imm);                                              \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg1}, repr});                                                       \
+  }
+  ARITH_BINOP1(add)
+  ARITH_BINOP1(sub)
+  ARITH_BINOP1(mul)
+#undef ARITH_BINOP1
+
+#define ARITH_BINOP2(mnemonic)                                                                                                  \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, std::string const &arg1, std::string const &arg2) {  \
+    std::string repr = "\t %`d = " #mnemonic " `t `a0, `a1";                                                                    \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {{arg1, arg2}}, repr});                                               \
+  }                                                                                                                             \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, int64_t imm, std::string const &arg2)  {             \
+    std::string repr = "\t %`d = " #mnemonic " `t " + std::to_string(imm) + ", `a1";                                            \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg2}, repr});                                                       \
+  }                                                                                                                             \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, std::string const &arg1, int64_t imm)  {             \
+    std::string repr = "\t %`d = " #mnemonic " `t `a0, "+ std::to_string(imm);                                                  \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg1}, repr});                                                       \
+  }
+  ARITH_BINOP2(udiv)
+  ARITH_BINOP2(shl) // left shift
+  ARITH_BINOP2(ashr) // arithmetic right shift
+  ARITH_BINOP2(and)
+  ARITH_BINOP2(or)
+  ARITH_BINOP2(xor)
+#undef ARITH_BINOP2
+  
+#define COMP(mnemonic)                                                                                                          \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, std::string const &arg1, std::string const &arg2) {  \
+    std::string repr = "\t %`d = icomp " #mnemonic " `t `a0, `a1";                                                              \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {{arg1, arg2}}, repr});                                               \
+  }                                                                                                                             \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, int64_t imm, std::string const &arg2)  {             \
+    std::string repr = "\t %`d = icomp " #mnemonic " `t " + std::to_string(imm) + ", `a1";                                      \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg2}, repr});                                                       \
+  }                                                                                                                             \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type, std::string const &arg1, int64_t imm)  {             \
+    std::string repr = "\t %`d = icomp " #mnemonic " `t `a0, "+ std::to_string(imm);                                            \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg1}, repr});                                                       \
+  }
+  COMP(eq)  // equal
+  COMP(ne)  // not equal
+  COMP(sgt) // signed greater than
+  COMP(sge) // signed greater and equal
+  COMP(slt) // signed less than
+  COMP(sle) // signed less and equal
+#undef COMP
+
+static ptr global_with_value(std::string const &name, std::string const &type, int64_t imm) {                                 
+    std::string repr = "\t %`d = global `t " + std::to_string(imm) + ", align 8 ";
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{name}, {type}, {}, repr}); 
   }
 
-#define ARITH_BINOP(mnemonic)                                                  \
-  static ptr mnemonic##q(int64_t imm, Pseudo const &dest) {                    \
-    std::string repr = "\t" #mnemonic "q $" + std::to_string(imm) + ", `d0";   \
-    return std::shared_ptr<Asm>(new Asm{{}, {dest}, {}, repr});                \
-  }                                                                            \
-  static ptr mnemonic##q(Pseudo const &src, Pseudo const &dest) {              \
-    return std::shared_ptr<Asm>(                                               \
-        new Asm{{src}, {dest}, {}, "\t" #mnemonic "q `s0, `d0"});              \
-  }
-  ARITH_BINOP(mov)
-  ARITH_BINOP(movabs)
-  ARITH_BINOP(add)
-  ARITH_BINOP(sub)
-  ARITH_BINOP(and)
-  ARITH_BINOP(or)
-  ARITH_BINOP (xor)
-#undef ARITH_BINOP
-
-  static ptr movq_reg2mem(Pseudo const &src, std::string const &mem_lab) {
-    return std::shared_ptr<Asm>(
-        new Asm{{src}, {}, {}, "\tmovq `s0, " + mem_lab + "(%rip)"});
+static ptr global_no_value(std::string const &name, std::string const &type) {                                 
+    std::string repr = "\t %`d = global `t, align 8 ";
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{name}, {type}, {}, repr}); 
   }
 
-  static ptr movq_mem2reg(std::string const &mem_lab, Pseudo const &dest) {
-    return std::shared_ptr<Asm>(
-        new Asm{{}, {dest}, {}, "\tmovq " + mem_lab + "(%rip), `d0"});
+static ptr ret_void() {                                 
+    std::string repr = "\t ret void";
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{}, {}, {}, repr}); 
   }
 
-  static ptr movq_reg2addr(Pseudo const &src, int offset, Pseudo const &addr) {
-    return std::shared_ptr<Asm>(
-        new Asm{{src, addr},
-                {},
-                {},
-                "\tmovq `s0, " + std::to_string(offset) + "(`s1)"});
+static ptr ret_type(std::string const &type) {                                 
+    std::string repr = "\t ret `t ";
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{}, {type}, {}, repr}); 
   }
 
-  static ptr movq_addr2reg(int offset, Pseudo const &addr, Pseudo const &dest) {
-    return std::shared_ptr<Asm>(new Asm{
-        {addr}, {dest}, {}, "\tmovq " + std::to_string(offset) + "(`s0), `d0"});
+static ptr allocation(std::string const &name, std::string const &glb_var) {                                          
+    std::string repr = "\t %`d = alloca %"+ glb_var+ " align 8";
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{name}, {}, {}, repr}); 
   }
 
-  static ptr cqo() {
-    return std::shared_ptr<Asm>(new Asm{
-        {Pseudo{reg::rax}}, {Pseudo{reg::rax}, Pseudo{reg::rdx}}, {}, "\tcqo"});
+/////////////////////////////////////////////////////////////////////////////////////////////
+/*
+static ptr alloca(std::string const &name) {                                          
+    std::string repr = "\t %`d = icomp   `t `a0, "+ std::to_string(imm);
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{}, {dest}, {}, repr}); 
   }
 
-  static ptr imulq(Pseudo const &factor) {
-    return std::shared_ptr<Asm>(new Asm{{factor, Pseudo{reg::rax}},
-                                        {Pseudo{reg::rax}, Pseudo{reg::rdx}},
-                                        {},
-                                        "\timulq `s0"});
+static ptr getelementptr(std::string const &name) {                                 
+    std::string repr = "\t %`d = icomp  `t `a0, "+ std::to_string(imm);
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{}, {dest}, {}, repr}); 
   }
 
-  static ptr idivq(Pseudo const &divisor) {
-    return std::shared_ptr<Asm>(
-        new Asm{{divisor, Pseudo{reg::rax}, Pseudo{reg::rdx}},
-                {Pseudo{reg::rax}, Pseudo{reg::rdx}},
-                {},
-                "\tidivq `s0"});
+static ptr load(std::string const &name) {                                 
+    std::string repr = "\t %`d = icomp  `t `a0, "+ std::to_string(imm);
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{}, {dest}, {}, repr}); 
   }
 
-  static ptr cmpq(Pseudo const &arg1, Pseudo const &arg2) {
-    return std::shared_ptr<Asm>(
-        new Asm{{arg1, arg2}, {}, {}, "\tcmpq `s0, `s1"});
+static ptr store(std::string const &name) {                                 
+    std::string repr = "\t %`d = icomp  `t `a0, "+ std::to_string(imm);
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{{}, {dest}, {}, repr}); 
   }
 
-  static ptr cmpq(int32_t imm, Pseudo const &arg) {
-    std::string repr = "\tcmpq $" + std::to_string(imm) + ", `s0";
-    return std::shared_ptr<Asm>(new Asm{{arg}, {}, {}, repr});
+static ptr call(std::string const &name) {                                 
+    std::string repr = "\t %`d = icomp  `t `a0, "+ std::to_string(imm);
+    return std::unique_ptr<Llvm>(                                               
+        new Llvm{}, {dest}, {}, repr}); 
   }
+*/
 
-#define ARITH_UNOP(mnemonic)                                                   \
-  static ptr mnemonic##q(Pseudo const &arg) {                                  \
-    return std::shared_ptr<Asm>(                                               \
-        new Asm{{arg}, {arg}, {}, "\t" #mnemonic "q `s0"});                    \
-  }
-  ARITH_UNOP(neg)
-  ARITH_UNOP(not)
-#undef ARITH_UNOP
-
-  static ptr pushq(Pseudo const &arg) {
-    return std::shared_ptr<Asm>(new Asm{{arg}, {}, {}, "\tpushq `s0"});
-  }
-
-  static ptr popq(Pseudo const &arg) {
-    return std::shared_ptr<Asm>(new Asm{{}, {arg}, {}, "\tpopq `d0"});
-  }
-
-#define SHIFTOP(mnemonic)                                                      \
-  static ptr mnemonic##q(Pseudo const &dest) {                                 \
-    return std::shared_ptr<Asm>(                                               \
-        new Asm{{Pseudo{reg::rcx}}, {dest}, {}, "\t" #mnemonic "q %cl, `d0"}); \
-  }
-  SHIFTOP(sar)
-  SHIFTOP(shr) // not really used in this course
-  SHIFTOP(sal)
-#undef SHIFTOP
-
-#define BRANCH_OP(mnemonic)                                                    \
-  static ptr mnemonic(Label const &destination) {                              \
-    return std::shared_ptr<Asm>(                                               \
-        new Asm{{}, {}, {destination}, "\t" #mnemonic " `j0"});                \
-  }
-  BRANCH_OP(jmp)
-  BRANCH_OP(je)
-  BRANCH_OP(jne)
-  BRANCH_OP(jl)
-  BRANCH_OP(jle)
-  BRANCH_OP(jg)
-  BRANCH_OP(jge)
-#undef BRANCH_OP
-
-  static ptr call(Label const &func) {
-    return std::shared_ptr<Asm>(
-        new Asm{{}, {Pseudo{reg::rax}}, {}, "\tcall " + func});
-  }
-
-  static ptr ret() {
-    return std::shared_ptr<Asm>(new Asm{{}, {}, {}, "\tret"});
-  }
 };
 
-std::ostream &operator<<(std::ostream &out, Asm const &line);
+std::ostream &operator<<(std::ostream &out, Llvm const &line);
 
 } // namespace llvm
 } // namespace bx
