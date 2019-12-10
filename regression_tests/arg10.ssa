@@ -1,0 +1,55 @@
+CALLABLE "main":
+enter: L15
+leave: L0
+----
+L0:
+	move 1, 0.0
+	move 2, 1.0
+	move 3, 2.0
+	move 4, 3.0
+	move 5, 4.0
+	move 6, 5.0
+	move 7, 6.0
+	move 8, 7.0
+	move 9, 8.0
+	move 10, 9.0
+	call f(0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0), 10.0
+	call bx_print_int(10.0), -1.0
+	leave: L1,
+L1:
+	return-1.0
+	leave: 
+END CALLABLE
+
+
+CALLABLE "f":
+enter: L15
+leave: L0
+----
+L14:
+	copy 11.0, 22.0
+	binop add, 12.0, 22.0
+	copy 22.0, 23.0
+	copy 13.0, 24.0
+	binop add, 14.0, 24.0
+	copy 24.0, 25.0
+	binop add, 15.0, 25.0
+	binop add, 25.0, 23.0
+	copy 23.0, 26.0
+	copy 16.0, 27.0
+	binop add, 17.0, 27.0
+	copy 27.0, 28.0
+	copy 18.0, 29.0
+	binop add, 19.0, 29.0
+	copy 29.0, 30.0
+	binop add, 20.0, 30.0
+	binop add, 30.0, 28.0
+	binop add, 28.0, 26.0
+	copy 26.0, 21.0
+	leave: L15,
+L15:
+	return21.0
+	leave: 
+END CALLABLE
+
+

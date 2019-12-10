@@ -7,11 +7,10 @@
 
 #include "ast.h"
 #include "ast_rtl.h"
-#include "ertl.h"
- #include "rtl.h"
-#include "rtl_ertl.h"
+#include "rtl.h"
 #include "type_check.h"
 #include "ssa.h"
+#include "rtl_ssa.h"
 
 using namespace bx;
 
@@ -55,7 +54,20 @@ int main(int argc, char *argv[]) {
       rtl_out.close();
       std::cout << rtl_file << " written.\n";
     }
-
+    auto ssa_prog = blocks_generate(prog.global_vars, rtl_prog);
+    {
+      auto ssa_file = file_root + ".ssa";
+      std::ofstream ssa_out;
+      ssa_out.open(ssa_file);
+      for (auto const &gv : prog.global_vars)
+        ssa_out << "GLOBAL " << gv.first << " = " << *(gv.second->init) << " : "
+                << gv.second->ty << "\n\n";
+      for (auto const &ssa_cbl : ssa_prog)
+        ssa_out << ssa_cbl << '\n';
+      ssa_out.close();
+      std::cout << ssa_file << " written.\n";
+    }
+    /*
     auto ertl_prog = make_explicit(prog.global_vars, rtl_prog);
     {
       auto ertl_file = file_root + ".ertl";
@@ -69,7 +81,6 @@ int main(int argc, char *argv[]) {
       ertl_out.close();
       std::cout << ertl_file << " written.\n";
     }
-    /*
     auto asm_prog = asm_generate(prog.global_vars, ertl_prog);
     auto s_file = file_root + ".s";
     {

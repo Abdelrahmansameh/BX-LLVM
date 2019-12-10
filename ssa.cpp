@@ -35,13 +35,12 @@ const std::map<Bbranch::Code, char const *> Bbranch::code_map{
 
 
 std::ostream &operator<<(std::ostream &out, BBlock const &blc) {
-  out << "\n----\n";
   for (auto const &instr : blc.body)
-    out << *instr << '\n';
-  out << "\nleave: ";
+    out << "\t" << *instr << '\n';
+  out << "\tleave: ";
   for (auto const &out_lab : blc.outlabels) 
     out << out_lab << ",";
-  return out << "\n----\n";
+  return out;
 }
 
 
@@ -50,7 +49,7 @@ std::ostream &operator<<(std::ostream &out, Callable const &cbl) {
   out << "\nenter: " << cbl.enter << "\nleave: " << cbl.leave;
   out << "\n----\n";
   for (auto const &in_lab : cbl.schedule)
-    out << in_lab << ": " << *(cbl.body.at(in_lab)) << '\n';
+    out << in_lab << ":\n" << *(cbl.body.at(in_lab)) << '\n';
   return out << "END CALLABLE\n\n";
 }
 

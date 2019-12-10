@@ -1,11 +1,11 @@
 #pragma once
 
 #include "ssa.h"
-#include "ertl.h"
+#include "rtl.h"
 
 namespace bx {
 
-ssa::Program ssa_generate(source::Program::GlobalVarTable const &,
-                        ertl::Program const &);
+ssa::Program blocks_generate(source::Program::GlobalVarTable const &,
+                        rtl::Program  &);
 
 } // namespace bx

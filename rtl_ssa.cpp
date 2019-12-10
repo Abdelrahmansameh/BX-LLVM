@@ -22,20 +22,20 @@
 namespace bx {
 
 
-class Ssaer : public rtl::InstrVisitor {
+class Blocker : public rtl::InstrVisitor {
 private:
   source::Program::GlobalVarTable const &global_vars;
   rtl::Callable const &rtl_cbl;
-  ssa::Callable ssa_cbl;
   std::vector<rtl::Label> leaders;
   std::vector<rtl::Label> outlabels;
   std::vector<ssa::InstrPtr> body;
 public:
-  Ssaer(source::Program::GlobalVarTable const &global_vars,
+  ssa::Callable ssa_cbl;
+  Blocker(source::Program::GlobalVarTable const &global_vars,
                 rtl::Callable const &rtl_cbl,
                 std::vector<rtl::Label> leaders)
       : global_vars{global_vars}, rtl_cbl{rtl_cbl},
-        ssa_cbl{rtl_cbl.name}, leaders{leaders}{
+         leaders{leaders}, ssa_cbl{rtl_cbl.name}{
 
     for (auto &l : leaders){
         rtl_cbl.body.at(l)->accept(l, *this);
@@ -127,5 +127,43 @@ public:
   
 };
 
-
+ssa::Program blocks_generate(source::Program::GlobalVarTable const &global_vars,
+                        rtl::Program &prog) {
+  ssa::Program ret;
+  for (auto &cbl : prog) {
+    std::vector<rtl::Label> leaders;
+    leaders.push_back(cbl.enter);
+    std::cout << cbl.name << std::endl;
+    for (auto &l : cbl.schedule) {
+      auto i = cbl.body.at(l);
+      if (auto bb = std::dynamic_pointer_cast<const rtl::Bbranch>(i)){
+        if (std::find(leaders.begin(), leaders.end(), bb->succ) == leaders.end()) {
+          leaders.push_back(bb->succ);
+        }
+        if (std::find(leaders.begin(), leaders.end(), bb->fail) == leaders.end()) {
+          leaders.push_back(bb->fail);
+        }
+      }
+      if (auto ub = std::dynamic_pointer_cast<const rtl::Ubranch>(i)){
+        if (std::find(leaders.begin(), leaders.end(), ub->succ) == leaders.end()) {
+          leaders.push_back(ub->succ);
+        }
+        if (std::find(leaders.begin(), leaders.end(), ub->fail) == leaders.end()) {
+          leaders.push_back(ub->fail);
+        }
+      }
+      if (auto gt = std::dynamic_pointer_cast<const rtl::Goto>(i)){
+        if (std::find(leaders.begin(), leaders.end(), gt->succ) == leaders.end()) {
+          leaders.push_back(gt->succ);
+        }
+      }
+    }
+  for (auto &l : leaders){
+    std::cout << l << std::endl;
+  }
+  Blocker blocker{global_vars, cbl, leaders};
+  ret.push_back(blocker.ssa_cbl);
+  } 
+  return ret;
+}
 } // namespace bx
