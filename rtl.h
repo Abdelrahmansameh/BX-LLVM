@@ -97,6 +97,7 @@ struct Instr {
   virtual ~Instr() = default;
   virtual std::ostream &print(std::ostream &out) const = 0;
   virtual void accept(Label const &lab, InstrVisitor &vis) const = 0;
+  virtual std::vector<Pseudo> getPseudos() const = 0;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Instr const &i) {
@@ -113,6 +114,10 @@ struct Move : public Instr {
   Pseudo dest;
   Label succ;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{dest};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "move " << source << ", " << dest << "  --> " << succ;
   }
@@ -124,6 +129,10 @@ struct Move : public Instr {
 struct Copy : public Instr {
   Pseudo source, dest;
   Label succ;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{dest, source};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "copy " << source << ", " << dest << "  --> " << succ;
@@ -138,6 +147,10 @@ struct Load : public Instr {
   int offset;
   Pseudo dest;
   Label succ;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{dest};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "load " << source << '+' << offset << ", " << dest << "  --> "
@@ -155,6 +168,10 @@ struct Store : public Instr {
   int offset;
   Label succ;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{source};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "store " << source << ", " << dest << '+' << offset
                << "  --> " << succ;
@@ -171,6 +188,10 @@ struct Unop : public Instr {
   Code opcode;
   Pseudo arg;
   Label succ;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "unop " << code_map.at(opcode) << ", " << arg << "  --> "
@@ -195,6 +216,10 @@ struct Binop : public Instr {
   Pseudo source, dest;
   Label succ;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{source, dest};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "binop " << code_map.at(opcode) << ", " << source << ", "
                << dest << "  --> " << succ;
@@ -213,6 +238,10 @@ struct Ubranch : public Instr {
   Code opcode;
   Pseudo arg;
   Label succ, fail;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "ubranch " << code_map.at(opcode) << ", " << arg << "  --> "
@@ -238,6 +267,10 @@ struct Bbranch : public Instr {
   Pseudo arg1, arg2;
   Label succ, fail;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg1, arg2};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "bbranch " << code_map.at(opcode) << ", " << arg1 << ", "
                << arg2 << "  --> " << succ << ", " << fail;
@@ -254,6 +287,10 @@ private:
 struct Goto : public Instr {
   Label succ;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "goto  --> " << succ;
   }
@@ -266,6 +303,15 @@ struct Call : public Instr {
   std::vector<Pseudo> args;
   Pseudo ret;
   Label succ;
+
+  std::vector<Pseudo> getPseudos() const override{
+    std::vector<Pseudo> pseudos;
+    for (auto i : args){
+      pseudos.push_back(i);
+    }
+    pseudos.push_back(ret);
+    return pseudos;
+  }
 
   std::ostream &print(std::ostream &out) const override {
     out << "call " << func << "(";
@@ -284,6 +330,10 @@ struct Call : public Instr {
 
 struct Return : public Instr {
   Pseudo arg;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "return " << arg;

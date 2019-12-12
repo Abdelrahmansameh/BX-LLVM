@@ -6,9 +6,8 @@
 
 #include "ast.h"
 #include "rtl.h"
-#include "ertl.h"
 
-/** This defines the SSA representation of ERTL */
+/** This defines the SSA representation of RTL */
 
 #ifndef CONSTRUCTOR
 #define CONSTRUCTOR(Cls, ...)                                                  \
@@ -61,6 +60,7 @@ struct Ubranch;
 struct Goto;
 struct Call;
 struct Return;
+struct Phi;
 
 struct InstrVisitor {
   virtual ~InstrVisitor() = default;
@@ -77,6 +77,7 @@ struct InstrVisitor {
   VISIT_FUNCTION(Goto);
   VISIT_FUNCTION(Call);
   VISIT_FUNCTION(Return);
+  VISIT_FUNCTION(Phi);
 #undef VISIT_FUNCTION
 };
 
@@ -84,6 +85,7 @@ struct Instr {
   virtual ~Instr() = default;
   virtual std::ostream &print(std::ostream &out) const = 0;
   virtual void accept(Label const &lab, InstrVisitor &vis) = 0;
+  virtual std::vector<Pseudo> getPseudos() const = 0;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Instr const &i) {
@@ -99,6 +101,10 @@ struct Move : public Instr {
   int64_t source;
   Pseudo dest;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{dest};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "move " << source << ", " << dest;
   }
@@ -109,6 +115,10 @@ struct Move : public Instr {
 
 struct Copy : public Instr {
   Pseudo src, dest;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{dest, src};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "copy " << src << ", " << dest;
@@ -124,6 +134,10 @@ struct Load : public Instr {
   int offset;
   Pseudo dest;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{dest};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "load " << src << '+' << offset << ", " << dest;
   }
@@ -137,6 +151,10 @@ struct Store : public Instr {
   std::string dest;
   int offset;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{src};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "store " << src << ", " << dest << '+' << offset;
   }
@@ -149,6 +167,10 @@ struct Unop : public Instr {
   using Code = rtl::Unop::Code;
   Code opcode;
   Pseudo arg;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "unop " << code_map.at(opcode) << ", " << arg;
@@ -167,6 +189,10 @@ struct Binop : public Instr {
   Code opcode;
   Pseudo src, dest;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{src, dest};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "binop " << code_map.at(opcode) << ", " << src << ", " << dest;
   }
@@ -183,6 +209,10 @@ struct Ubranch : public Instr {
 
   Code opcode;
   Pseudo arg;
+
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "ubranch " << code_map.at(opcode) << ", " << arg;
@@ -201,6 +231,10 @@ struct Bbranch : public Instr {
   Code opcode;
   Pseudo arg1, arg2;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg1, arg2};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "bbranch " << code_map.at(opcode) << ", " << arg1 << ", "
                << arg2;
@@ -214,6 +248,9 @@ private:
 };
 
 struct Goto : public Instr {
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{};
+  }
 
   std::ostream &print(std::ostream &out) const override {
     return out << "goto  --> ";
@@ -227,6 +264,15 @@ struct Call : public Instr {
   std::string func;
   std::vector<Pseudo> args;
   Pseudo ret;
+
+  std::vector<Pseudo> getPseudos() const override{
+    std::vector<Pseudo> pseudos;
+    for (auto i : args){
+      pseudos.push_back(i);
+    }
+    pseudos.push_back(ret);
+    return pseudos;
+  }
 
   std::ostream &print(std::ostream &out) const override {
     out << "call " << func << "(";
@@ -245,23 +291,63 @@ struct Call : public Instr {
 struct Return : public Instr {
   Pseudo arg;
 
+  std::vector<Pseudo> getPseudos() const override{
+    return std::vector<Pseudo>{arg};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "return"<< arg;
   }
   MAKE_VISITABLE
   CONSTRUCTOR(Return, Pseudo arg) : arg{arg} {}
 };
+
+struct Phi : public Instr{
+  std::vector<Pseudo> args;
+  Pseudo dest;
+
+  std::vector<Pseudo> getPseudos() const override{
+    std::vector<Pseudo> pseudos;
+    for (auto i : args){
+      pseudos.push_back(i);
+    }
+    pseudos.push_back(dest);
+    return pseudos;
+  }
+
+  std::ostream &print(std::ostream &out) const override {
+    out << "phi " << "(";
+    for (auto it = args.cbegin(); it != args.cend(); it++) {
+      out << *it;
+      if (it + 1 != args.cend())
+        out << ", ";
+    }
+    return out << ") >> " << dest;
+  }
+  MAKE_VISITABLE
+  CONSTRUCTOR(Phi, std::vector<Pseudo> args, Pseudo dest)
+      : args{args}, dest{dest} {}
+};
 #undef MAKE_VISITABLE
 
 struct BBlock{
-    std::vector<Label> outlabels;
-    std::vector<InstrPtr> body;
-    CONSTRUCTOR(BBlock, std::vector<Label> outlabels, std::vector<InstrPtr> body) {
-      this->outlabels = outlabels;
-      for (auto i : body){
-        this->body.push_back(i);
+  std::vector<Label> outlabels;
+  std::vector<InstrPtr> body;
+  /*std::vector<Pseudo> getPseudos() const {
+    std::vector<Pseudo> pseudos;
+    for (auto i : body){
+      for (auto ps : i->getPseudos()){
+        pseudos.push_back(ps);
       }
     }
+    return pseudos;
+  } */
+  CONSTRUCTOR(BBlock, std::vector<Label> outlabels, std::vector<InstrPtr> body) {
+    this->outlabels = outlabels;
+    for (auto i : body){
+      this->body.push_back(i);
+    }
+  }
 };
 std::ostream &operator<<(std::ostream &out, BBlock const &blc);
 using BBlockPtr = std::shared_ptr<BBlock const>;
@@ -270,7 +356,7 @@ using BBlockPtr = std::shared_ptr<BBlock const>;
 struct Callable {
   std::string name;
   Label enter, leave;
-  std::vector<std::pair<ertl::Mach, Pseudo>> callee_saves;
+  //std::vector<std::pair<ertl::Mach, Pseudo>> callee_saves;
   rtl::LabelMap<BBlockPtr> body;
   std::vector<Label> schedule; // the order in which the labels are scheduled
   explicit Callable(std::string name) : name{name} {}
