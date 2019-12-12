@@ -35,6 +35,19 @@ struct Pseudo {
 };
 std::ostream &operator<<(std::ostream &out, Pseudo const &r);
 
+struct PseudoHash {
+  std::size_t operator()(Pseudo const &ps) const noexcept {
+    return std::hash<int>{}(ps.id) ^ std::hash<int>{}(ps.version);
+  }
+};
+struct PseudoEq {
+  constexpr bool operator()(Pseudo const &ps1, Pseudo const &ps2) const noexcept {
+    return ps1.id == ps2.id && ps1.version == ps2.version;
+  }
+};
+template <typename V>
+using PseudoMap = std::unordered_map<Pseudo, V, PseudoHash, PseudoEq>;
+
 /*enum class Mach : int8_t {
   // clang-format off
   RAX, RBX, RCX, RDX, RBP, RDI, RSI, RSP,
@@ -45,7 +58,7 @@ char const *to_string(Mach m);
 std::ostream &operator<<(std::ostream &out, Mach m);
 */
 struct Instr;
-using InstrPtr = std::shared_ptr<Instr const>;
+using InstrPtr = std::shared_ptr<Instr>;
 
 struct BBlock;
 
@@ -86,6 +99,9 @@ struct Instr {
   virtual std::ostream &print(std::ostream &out) const = 0;
   virtual void accept(Label const &lab, InstrVisitor &vis) = 0;
   virtual std::vector<Pseudo> getPseudos() const = 0;
+  virtual void update_reads(std::unordered_map<int, int> table) = 0;
+  virtual void update_all(PseudoMap<int> table) = 0;
+  virtual Pseudo getDest() = 0;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Instr const &i) {
@@ -105,6 +121,18 @@ struct Move : public Instr {
     return std::vector<Pseudo>{dest};
   }
 
+  void update_reads(std::unordered_map<int, int> table){(void)table;}
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(dest) != table.end()){
+      dest.version = table[dest];
+    }
+  }
+
+  Pseudo getDest(){
+    return dest;
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "move " << source << ", " << dest;
   }
@@ -120,6 +148,25 @@ struct Copy : public Instr {
     return std::vector<Pseudo>{dest, src};
   }
 
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(src.id) != table.end()){
+      src.version = table[src.id];
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(src) != table.end()){
+      src.version = table[src];
+    }
+    if (table.find(dest) != table.end()){
+      dest.version = table[dest];
+    }
+  }
+
+  Pseudo getDest(){
+    return dest;
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "copy " << src << ", " << dest;
   }
@@ -133,6 +180,18 @@ struct Load : public Instr {
   std::string src;
   int offset;
   Pseudo dest;
+
+  void update_reads(std::unordered_map<int, int> table){(void)table;}
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(dest) != table.end()){
+      dest.version = table[dest];
+    }
+  }
+
+  Pseudo getDest(){
+    return dest;
+  }
 
   std::vector<Pseudo> getPseudos() const override{
     return std::vector<Pseudo>{dest};
@@ -151,6 +210,22 @@ struct Store : public Instr {
   std::string dest;
   int offset;
 
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(src.id) != table.end()){
+      src.version = table[src.id];
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(src) != table.end()){
+      src.version = table[src];
+    }
+  }
+
+  Pseudo getDest(){
+    return Pseudo{-1, -1};
+  }
+
   std::vector<Pseudo> getPseudos() const override{
     return std::vector<Pseudo>{src};
   }
@@ -167,17 +242,38 @@ struct Unop : public Instr {
   using Code = rtl::Unop::Code;
   Code opcode;
   Pseudo arg;
+  Pseudo dest;
+
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(arg.id) != table.end()){
+      arg.version = table[arg.id];
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(arg) != table.end()){
+      arg.version = table[arg];
+    }
+    if (table.find(dest) != table.end()){
+      dest.version = table[dest];
+    }
+  }
+
+
+  Pseudo getDest(){
+    return dest;
+  }
 
   std::vector<Pseudo> getPseudos() const override{
-    return std::vector<Pseudo>{arg};
+    return std::vector<Pseudo>{arg, dest};
   }
 
   std::ostream &print(std::ostream &out) const override {
-    return out << "unop " << code_map.at(opcode) << ", " << arg;
+    return out << "unop " << code_map.at(opcode) << ", " << arg << " >> " << dest;
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(Unop, Code opcode, Pseudo arg)
-      : opcode{opcode}, arg{arg}{}
+  CONSTRUCTOR(Unop, Code opcode, Pseudo arg, Pseudo dest)
+      : opcode{opcode}, arg{arg}, dest{dest}{}
 
 private:
   static const std::map<Code, char const *> code_map;
@@ -187,18 +283,43 @@ struct Binop : public Instr {
   using Code = rtl::Binop::Code;
 
   Code opcode;
-  Pseudo src, dest;
+  Pseudo src1, src2, dest;
+
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(src1.id) != table.end()){
+      src1.version = table[src1.id];
+    }
+    if (table.find(src2.id) != table.end()){
+      src2.version = table[src2.id];
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(src1) != table.end()){
+      src1.version = table[src1];
+    }
+    if (table.find(src2) != table.end()){
+      src2.version = table[src2];
+    }
+    if (table.find(dest) != table.end()){
+      dest.version = table[dest];
+    }
+  }
+
+  Pseudo getDest(){
+    return dest;
+  }
 
   std::vector<Pseudo> getPseudos() const override{
-    return std::vector<Pseudo>{src, dest};
+    return std::vector<Pseudo>{src1, src2, dest};
   }
 
   std::ostream &print(std::ostream &out) const override {
-    return out << "binop " << code_map.at(opcode) << ", " << src << ", " << dest;
+    return out << "binop " << code_map.at(opcode) << ", " << src1 << ", " << src2 << " >> " << dest;
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(Binop, Code opcode, Pseudo src, Pseudo dest)
-      : opcode{opcode}, src{src}, dest{dest} {}
+  CONSTRUCTOR(Binop, Code opcode, Pseudo src1, Pseudo src2, Pseudo dest)
+      : opcode{opcode}, src1{src1}, src2{src2} ,dest{dest} {}
 
 private:
   static const std::map<Code, char const *> code_map;
@@ -209,6 +330,22 @@ struct Ubranch : public Instr {
 
   Code opcode;
   Pseudo arg;
+
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(arg.id) != table.end()){
+      arg.version = table[arg.id];
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(arg) != table.end()){
+      arg.version = table[arg];
+    }
+  }
+
+  Pseudo getDest(){
+    return Pseudo{-1, -1};
+  }
 
   std::vector<Pseudo> getPseudos() const override{
     return std::vector<Pseudo>{arg};
@@ -235,6 +372,28 @@ struct Bbranch : public Instr {
     return std::vector<Pseudo>{arg1, arg2};
   }
 
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(arg1.id) != table.end()){
+      arg1.version = table[arg1.id];
+    }
+    if (table.find(arg2.id) != table.end()){
+      arg2.version = table[arg2.id];
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(arg1) != table.end()){
+      arg1.version = table[arg1];
+    }
+    if (table.find(arg2) != table.end()){
+      arg2.version = table[arg2];
+    }
+  }
+
+  Pseudo getDest(){
+    return Pseudo{-1, -1};
+  }
+
   std::ostream &print(std::ostream &out) const override {
     return out << "bbranch " << code_map.at(opcode) << ", " << arg1 << ", "
                << arg2;
@@ -250,6 +409,16 @@ private:
 struct Goto : public Instr {
   std::vector<Pseudo> getPseudos() const override{
     return std::vector<Pseudo>{};
+  }
+
+  void update_reads(std::unordered_map<int, int> table){(void)table;}
+
+  void update_all(std::unordered_map<int, int> table){
+    (void)table;
+  }
+
+  Pseudo getDest(){
+    return Pseudo{-1, -1};
   }
 
   std::ostream &print(std::ostream &out) const override {
@@ -274,6 +443,29 @@ struct Call : public Instr {
     return pseudos;
   }
 
+  void update_reads(std::unordered_map<int, int> table){
+    for (auto &arg : args){
+      if (table.find(arg.id) != table.end()){
+        arg.version = table[arg.id];
+      }
+    }
+  }
+
+  void update_all(PseudoMap<int> table){
+    for (auto &arg : args){
+      if (table.find(arg) != table.end()){
+        arg.version = table[arg];
+      }
+    }
+    if (table.find(ret) != table.end()){
+      ret.version = table[ret];
+    }
+  }
+
+  Pseudo getDest(){
+    return ret;
+  }
+
   std::ostream &print(std::ostream &out) const override {
     out << "call " << func << "(";
     for (auto it = args.cbegin(); it != args.cend(); it++) {
@@ -281,7 +473,7 @@ struct Call : public Instr {
       if (it + 1 != args.cend())
         out << ", ";
     }
-    return out << "), " << ret;
+    return out << ") >> " << ret;
   }
   MAKE_VISITABLE
   CONSTRUCTOR(Call, std::string func, std::vector<Pseudo> args, Pseudo ret)
@@ -293,6 +485,22 @@ struct Return : public Instr {
 
   std::vector<Pseudo> getPseudos() const override{
     return std::vector<Pseudo>{arg};
+  }
+
+  void update_reads(std::unordered_map<int, int> table){
+    if (table.find(arg.id) != table.end()){
+      arg.version = table[arg.id];
+    } 
+  }
+
+  void update_all(PseudoMap<int> table){
+    if (table.find(arg) != table.end()){
+      arg.version = table[arg];
+    }
+  }
+
+  Pseudo getDest(){
+    return Pseudo{-1, -1};
   }
 
   std::ostream &print(std::ostream &out) const override {
@@ -315,6 +523,23 @@ struct Phi : public Instr{
     return pseudos;
   }
 
+  void update_reads(std::unordered_map<int, int> table){(void)table;}
+
+  void update_all(PseudoMap<int> table){
+    for (auto &arg : args){
+      if (table.find(arg) != table.end()){
+        arg.version = table[arg];
+      }
+    }
+    if (table.find(dest) != table.end()){
+      dest.version = table[dest];
+    }
+  }
+
+  Pseudo getDest(){
+    return dest;
+  }
+
   std::ostream &print(std::ostream &out) const override {
     out << "phi " << "(";
     for (auto it = args.cbegin(); it != args.cend(); it++) {
@@ -333,6 +558,7 @@ struct Phi : public Instr{
 struct BBlock{
   std::vector<Label> outlabels;
   std::vector<InstrPtr> body;
+  std::unordered_map<int, int> recent_versions();
   /*std::vector<Pseudo> getPseudos() const {
     std::vector<Pseudo> pseudos;
     for (auto i : body){
@@ -350,7 +576,7 @@ struct BBlock{
   }
 };
 std::ostream &operator<<(std::ostream &out, BBlock const &blc);
-using BBlockPtr = std::shared_ptr<BBlock const>;
+using BBlockPtr = std::shared_ptr<BBlock>;
 
 
 struct Callable {
@@ -368,6 +594,13 @@ struct Callable {
     }
     schedule.push_back(lab);
     body.insert_or_assign(lab, std::move(block));
+  }
+  void replace_all(PseudoMap<int> table){
+    for (auto &blc : body){
+      for (auto &i : blc.second->body){
+        i->update_all(table);
+      }
+    }
   }
 };
 std::ostream &operator<<(std::ostream &out, Callable const &cbl);

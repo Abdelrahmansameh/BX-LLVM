@@ -53,5 +53,17 @@ std::ostream &operator<<(std::ostream &out, Callable const &cbl) {
   return out << "END CALLABLE\n\n";
 }
 
+std::unordered_map<int, int> BBlock::recent_versions(){
+  std::unordered_map<int, int> ret;
+  for (auto &i : body){
+    for (auto &ps : i->getPseudos()){
+      if (ps.version != -1){ // -1 means a version has not been assigned yet
+        ret.insert_or_assign(ps.id, ps.version);
+      }
+    }
+  }
+  return ret;
+}
+
 } // namespace ssa
 } // namespace bx
