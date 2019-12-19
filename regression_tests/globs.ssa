@@ -1,0 +1,48 @@
+GLOBAL b = true : bool
+
+GLOBAL u = 20 : int64
+
+CALLABLE "main":
+enter: L-1246575472
+leave: L32765
+----
+L0:
+	load u+0, 0.6
+	copy 0.6, 1.0
+	load u+0, 2.6
+	binop mul, 2.6, 1.0 >> 1.7
+	move 400, 3.6
+	bbranch je, 1.7, 3.6
+	leave: L8,L7,
+L8:
+	move 1, 4.1
+	copy 4.1, 5.1
+	ubranch jnz, 5.1
+	leave: L12,L11,
+L7:
+	move 0, 4.3
+	copy 4.3, 5.3
+	ubranch jnz, 5.3
+	leave: L12,L11,
+L12:
+	phi (4.1, 4.3) >> 4.5
+	phi (5.1, 5.3) >> 5.5
+	move 1, 6.3
+	call bx_print_bool(6.3) >> -1.3
+	leave: L1,
+L11:
+	phi (4.1, 4.3) >> 4.6
+	phi (5.1, 5.3) >> 5.6
+	move 0, 6.5
+	call bx_print_bool(6.5) >> -1.5
+	leave: L1,
+L1:
+	phi (4.5, 4.6) >> 4.7
+	phi (-1.3, -1.5) >> -1.7
+	phi (5.5, 5.6) >> 5.7
+	phi (6.3, 6.5) >> 6.7
+	return-1.7
+	leave: 
+END CALLABLE
+
+

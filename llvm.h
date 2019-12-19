@@ -56,8 +56,9 @@ private:
 
 public:
 
-static ptr set_label(int64_t imm) {
-    return std::unique_ptr<Llvm>(new Llvm{{}, {}, {}, std::to_string(imm)  + ":"});
+static ptr directive(std::string const &directive) {
+    return std::shared_ptr<LLvm>(
+        new Llvm{{}, {}, {}, directive});
   }
 
 #define ARITH_BINOP1(mnemonic)                                                                                                  \

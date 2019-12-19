@@ -1,0 +1,74 @@
+GLOBAL b = true : bool
+
+GLOBAL u = 20 : int64
+
+CALLABLE "main":
+enter: L-1006979344
+leave: L32765
+----
+L0:
+	move 10, 0.6
+	copy 0.6, 1.0
+	call bx_print_int(1.0) >> -1.8
+	copy 1.0, 2.0
+	load u+0, 3.6
+	binop add, 3.6, 2.0 >> 2.7
+	copy 2.7, 1.7
+	load b+0, 4.6
+	ubranch jnz, 4.6
+	leave: L11,L10,
+L11:
+	move 1, 5.1
+	copy 5.1, 6.1
+	ubranch jnz, 6.1
+	leave: L15,L14,
+L10:
+	move 0, 5.3
+	copy 5.3, 6.3
+	ubranch jnz, 6.3
+	leave: L15,L14,
+L15:
+	phi (6.1, 6.3) >> 6.5
+	phi (5.1, 5.3) >> 5.5
+	move 1, 7.3
+	call bx_print_bool(7.3) >> -1.4
+	move 42, 8.3
+	copy 8.3, 9.3
+	call bx_print_int(1.7) >> -1.5
+	copy 1.7, 10.3
+	move 10, 11.3
+	binop add, 11.3, 10.3 >> 10.4
+	copy 10.4, 12.3
+	call bx_print_int(12.3) >> -1.6
+	call bx_print_int(1.7) >> -1.7
+	leave: L1,
+L14:
+	phi (6.1, 6.3) >> 6.6
+	phi (5.1, 5.3) >> 5.6
+	move 0, 7.5
+	call bx_print_bool(7.5) >> -1.9
+	move 42, 8.5
+	copy 8.5, 9.5
+	call bx_print_int(1.7) >> -1.10
+	copy 1.7, 10.6
+	move 10, 11.5
+	binop add, 11.5, 10.6 >> 10.7
+	copy 10.7, 12.5
+	call bx_print_int(12.5) >> -1.11
+	call bx_print_int(1.7) >> -1.12
+	leave: L1,
+L1:
+	phi (9.3, 9.5) >> 9.7
+	phi (8.3, 8.5) >> 8.7
+	phi (7.3, 7.5) >> 7.7
+	phi (6.5, 6.6) >> 6.7
+	phi (5.5, 5.6) >> 5.7
+	phi (-1.7, -1.12) >> -1.14
+	phi (10.4, 10.7) >> 10.9
+	phi (11.3, 11.5) >> 11.7
+	phi (12.3, 12.5) >> 12.7
+	return-1.14
+	leave: 
+END CALLABLE
+
+
