@@ -201,6 +201,11 @@ public:
         new Llvm{{name}, {type}, {}, repr});
   }
 
+  static ptr phi(std::string const &name, std::string const &glb_var) {
+    std::string repr = "\t %`d = alloca %" + glb_var + " align 8";
+    return std::unique_ptr<Llvm>(new Llvm{{name}, {}, {}, repr});
+  }
+
 
   /////////////////////////////////////////////////////////////////////////////////////////////
   /*
