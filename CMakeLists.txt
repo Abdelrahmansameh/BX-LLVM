@@ -18,6 +18,7 @@ set(bx-SRC
   ${PROJECT_SOURCE_DIR}/rtl_ssa.cpp
   ${PROJECT_SOURCE_DIR}/llvm.cpp
   ${PROJECT_SOURCE_DIR}/main.cpp
+  ${PROJECT_SOURCE_DIR}/ssa_llvm.cpp
 )
 set(bx-RUNTIME
   ${PROJECT_SOURCE_DIR}/bxrt.c

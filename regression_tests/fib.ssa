@@ -1,75 +1,79 @@
 GLOBAL num_fibs = 30 : int64
 
 CALLABLE "main":
+input(s): 
 enter: L0
-leave: L32765
+leave: L0
 ----
 L0:
 	move 0, 0.1
 	move 0, -1.1
 	load num_fibs+0, 0.2
-	call fib(0.2) >> -1.2
+	call fib(0.2) >> -1.0
+	goto  --> 
 	leave: L1,
 L1:
-	return-1.2
+	return-1.-1
 	leave: 
 END CALLABLE
 
 
 CALLABLE "fib":
+input(s): 1.0 
 enter: L4
-leave: L32765
+leave: L0
 ----
 L4:
 	move 0, 3.1
 	move 0, 2.1
-	move 0, 1.1
-	move 0, -1.1
 	move 0, 2.2
 	move 1, 3.2
-	call fib_aux(2.2, 3.2, 1.1) >> -1.2
+	call fib_aux(2.2, 3.2, 1.0) >> -1.0
+	goto  --> 
 	leave: L5,
 L5:
-	return-1.2
+	return-1.-1
 	leave: 
 END CALLABLE
 
 
 CALLABLE "fib_aux":
+input(s): 4.0 5.0 6.0 
 enter: L9
-leave: L32765
+leave: L0
 ----
 L9:
 	move 0, 8.6
-	move 0, -1.6
-	move 0, 4.3
 	move 0, 7.1
-	move 0, 6.3
-	move 0, 5.3
 	move 0, 9.6
 	move 0, 10.5
 	move 1, 7.4
-	bbranch jl, 6.3, 7.4
+	bbranch jl, 6.0, 7.4
 	leave: L13,L12,
 L13:
+	goto  --> 
 	leave: L10,
 L12:
+	goto  --> 
 	leave: L14,
 L10:
-	phi (8.5, 8.6) >> 8.3
-	phi (-1.5, -1.6) >> -1.3
-	phi (9.5, 9.6) >> 9.3
-	phi (10.4, 10.5) >> 10.3
-	return-1.3
+	phi (8.5, 8.6 ) from (L14, L13) >> 8.3
+	phi (4.3, 4.0 ) from (L14, L13) >> 4.2
+	phi (6.3, 6.0 ) from (L14, L13) >> 6.2
+	phi (5.3, 5.0 ) from (L14, L13) >> 5.2
+	phi (9.5, 9.6 ) from (L14, L13) >> 9.3
+	phi (10.4, 10.5 ) from (L14, L13) >> 10.3
+	return-1.-1
 	leave: 
 L14:
-	call bx_print_int(4.3) >> -1.4
+	call bx_print_int(4.3) >> -1.3
 	copy 4.3, 8.4
 	binop add, 5.3, 8.4 >> 8.5
 	copy 6.3, 9.4
 	move 1, 10.4
 	binop sub, 10.4, 9.4 >> 9.5
-	call fib_aux(5.3, 8.5, 9.5) >> -1.5
+	call fib_aux(5.3, 8.5, 9.5) >> -1.4
+	goto  --> 
 	leave: L10,
 END CALLABLE
 

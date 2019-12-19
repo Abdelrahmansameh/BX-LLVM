@@ -78,7 +78,7 @@ struct Phi;
 struct InstrVisitor {
   virtual ~InstrVisitor() = default;
 #define VISIT_FUNCTION(caseclass)                                              \
-  virtual void visit(Label const &, caseclass &) = 0
+  virtual void visit(Label const &, caseclass const &) = 0
   VISIT_FUNCTION(Move);
   VISIT_FUNCTION(Copy);
   VISIT_FUNCTION(Load);
@@ -413,7 +413,7 @@ struct Goto : public Instr {
 
   void update_reads(std::unordered_map<int, int> table){(void)table;}
 
-  void update_all(std::unordered_map<int, int> table){
+  void update_all(PseudoMap<int> table){
     (void)table;
   }
 
@@ -425,7 +425,9 @@ struct Goto : public Instr {
     return out << "goto  --> ";
   }
   MAKE_VISITABLE
-  CONSTRUCTOR(Goto);
+  static std::shared_ptr<Goto> make() {
+    return std::shared_ptr<Goto>{new Goto()};
+  }         
 };
 
 
@@ -513,6 +515,7 @@ struct Return : public Instr {
 struct Phi : public Instr{
   std::vector<Pseudo> args;
   Pseudo dest;
+  std::vector<Label> preds;
 
   std::vector<Pseudo> getPseudos() const override{
     std::vector<Pseudo> pseudos;
@@ -547,6 +550,12 @@ struct Phi : public Instr{
       if (it + 1 != args.cend())
         out << ", ";
     }
+    out << " ) from (";
+    for (auto it = preds.cbegin(); it != preds.cend(); it++) {
+      out << *it;
+      if (it + 1 != preds.cend())
+        out << ", ";
+    }
     return out << ") >> " << dest;
   }
   MAKE_VISITABLE
@@ -559,15 +568,13 @@ struct BBlock{
   std::vector<Label> outlabels;
   std::vector<InstrPtr> body;
   std::unordered_map<int, int> recent_versions();
-  /*std::vector<Pseudo> getPseudos() const {
+  std::vector<Pseudo> getDests() const {
     std::vector<Pseudo> pseudos;
     for (auto i : body){
-      for (auto ps : i->getPseudos()){
-        pseudos.push_back(ps);
-      }
+        pseudos.push_back(i->getDest());
     }
     return pseudos;
-  } */
+  }
   CONSTRUCTOR(BBlock, std::vector<Label> outlabels, std::vector<InstrPtr> body) {
     this->outlabels = outlabels;
     for (auto i : body){
@@ -582,8 +589,9 @@ using BBlockPtr = std::shared_ptr<BBlock>;
 struct Callable {
   std::string name;
   Label enter, leave;
-  //std::vector<std::pair<ertl::Mach, Pseudo>> callee_saves;
+  std::vector<Pseudo> input_regs;
   rtl::LabelMap<BBlockPtr> body;
+  std::string type;
   std::vector<Label> schedule; // the order in which the labels are scheduled
   explicit Callable(std::string name) : name{name} {}
   void add_block(Label lab, BBlockPtr block) {

@@ -7,7 +7,7 @@ namespace bx {
 
 using LlvmProgram = std::vector<std::shared_ptr<llvm::Llvm>>;
 
-LlvmProgram asm_generate(source::Program::GlobalVarTable const &,
+LlvmProgram llvm_generate(source::Program::GlobalVarTable const &,
                         ssa::Program const &);
 
 } // namespace bx

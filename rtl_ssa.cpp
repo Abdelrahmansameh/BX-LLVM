@@ -43,8 +43,13 @@ public:
          latest_version{latest_version}, 
          ssa_cbl{rtl_cbl.name}{
     
-    ssa_cbl.enter = rtl_cbl.enter;
+    for (auto const &parg : rtl_cbl.input_regs){
+      ssa_cbl.input_regs.push_back(ssa::Pseudo{parg.id, latest_version[parg.id]});
+      latest_version[parg.id] = latest_version[parg.id] + 1;
+    }
 
+    ssa_cbl.enter = rtl_cbl.enter;
+    ssa_cbl.type=  rtl_cbl.type;
     //Make the simple blocks
     for (auto &l : leaders){
         rtl_cbl.body.at(l)->accept(l, *this);
@@ -52,16 +57,26 @@ public:
           for (auto ps : this->latest_version){
             std::vector<ssa::Pseudo> args;
             // Add empty phi functions
-            body.insert(body.begin(), ssa::Phi::make(args, ssa::Pseudo{ps.first, ps.second}));
+            if (ps.first != -1){
+              body.insert(body.begin(), ssa::Phi::make(args, ssa::Pseudo{ps.first, ps.second}));
+            }
             this->latest_version[ps.first] = ps.second + 1;
           }
         }
         else{
           for (auto ps : this->latest_version){
-            std::vector<ssa::Pseudo> args;
-            // Add empty phi functions
-            body.insert(body.begin(), ssa::Move::make(0, ssa::Pseudo{ps.first, ps.second}));
-            this->latest_version[ps.first] = ps.second + 1;
+            bool doit = true;
+            for (auto const &inps : rtl_cbl.input_regs ){
+              if (inps.id == ps.first || ps.first == -1){
+                doit = false;
+              }
+            }
+            if (doit){
+              std::vector<ssa::Pseudo> args;
+              // Add empty phi functions
+              body.insert(body.begin(), ssa::Move::make(0, ssa::Pseudo{ps.first, ps.second}));
+              this->latest_version[ps.first] = ps.second + 1;
+            }
           }
         }
         ssa_cbl.add_block(l, ssa::BBlock::make(outlabels, body));
@@ -110,9 +125,55 @@ public:
       }
     }
 
+    for (auto &blc: ssa_cbl.body){
+      ssa::PseudoMap<rtl::Label> location;
+      for (auto &lpred : parents[blc.first]){
+        auto pred = ssa_cbl.body.at(lpred);
+        for (auto &pdest : pred->getDests()){
+          location[pdest] = lpred;
+        }
+      }
+      for (auto &i : blc.second->body){
+        if (auto fi = std::dynamic_pointer_cast<ssa::Phi>(i)){
+          for (auto &p : fi->args){
+            fi->preds.push_back(location[p]);
+          }
+        }
+      }
+    }
+/*
+    //remove empty phi functions
+    for (auto &blc : ssa_cbl.body){
+        std::vector<std::vector<ssa::InstrPtr>::iterator> to_erase;
+        for (auto it = blc.second->body.begin(); 
+            it != blc.second->body.end();
+            it++)
+        {
+          if (auto fi = std::dynamic_pointer_cast<ssa::Phi>(*it)){
+            if (fi->args.size() == 0){
+              to_erase.push_back(it);
+            }
+          }
+        }
+        std::vector<ssa::InstrPtr> new_body;
+        for (auto it = blc.second->body.begin(); 
+            it != blc.second->body.end();
+            it++)
+        {
+          if (std::find(to_erase.begin(), to_erase.end(), it) == to_erase.end()){
+            new_body.push_back(*it);
+          }
+        }
+        blc.second->body = new_body;
+    }
+
+*/
     //Replace the reads
     for (auto &blc: ssa_cbl.body){
       std::unordered_map<int, int> recents;
+      for (auto  &parg : ssa_cbl.input_regs){
+        recents.insert_or_assign(parg.id, parg.version);
+      }
       for (auto &i : blc.second->body){
         i->update_reads(recents);
         auto recent = i->getDest();
@@ -120,13 +181,13 @@ public:
       }
     }
 
+
     //Minimize ssa
     bool done = false;
     while (!done){
       std::cout << ssa_cbl << '\n';
       ssa::PseudoMap<int> replace;
       done = true;
-      std::cout << ssa_cbl << std::endl;
       for (auto &blc: ssa_cbl.body){
         std::vector<std::vector<ssa::InstrPtr>::iterator> to_erase;
         for (auto it = blc.second->body.begin(); 
@@ -270,6 +331,7 @@ public:
   }
 
   void visit(rtl::Label const &, rtl::Goto const &go) override {
+    body.push_back(ssa::Goto::make());
     outlabels.push_back(go.succ);
   }
   

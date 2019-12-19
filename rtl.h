@@ -349,6 +349,7 @@ struct Callable {
   std::vector<Pseudo> input_regs;
   Pseudo output_reg;
   LabelMap<InstrPtr> body;
+  std::string type;
   std::vector<Label> schedule; // the order in which the labels are scheduled
   explicit Callable(std::string name) : name{name} {}
   void add_instr(Label lab, InstrPtr instr) {

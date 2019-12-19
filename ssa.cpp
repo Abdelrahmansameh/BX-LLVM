@@ -46,6 +46,9 @@ std::ostream &operator<<(std::ostream &out, BBlock const &blc) {
 
 std::ostream &operator<<(std::ostream &out, Callable const &cbl) {
   out << "CALLABLE \"" << cbl.name << "\":";
+  out << "\ninput(s): ";
+  for (auto const &reg : cbl.input_regs)
+    out << reg << ' ';
   out << "\nenter: " << cbl.enter << "\nleave: " << cbl.leave;
   out << "\n----\n";
   for (auto const &in_lab : cbl.schedule)
@@ -56,11 +59,15 @@ std::ostream &operator<<(std::ostream &out, Callable const &cbl) {
 std::unordered_map<int, int> BBlock::recent_versions(){
   std::unordered_map<int, int> ret;
   for (auto &i : body){
-    for (auto &ps : i->getPseudos()){
+    auto ps = i->getDest();
+    if (ps.version != -1){
+      ret.insert_or_assign(ps.id, ps.version);
+    }
+    /*for (auto &ps : i->getPseudos()){
       if (ps.version != -1){ // -1 means a version has not been assigned yet
         ret.insert_or_assign(ps.id, ps.version);
       }
-    }
+    }*/
   }
   return ret;
 }

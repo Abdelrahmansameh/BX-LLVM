@@ -63,27 +63,33 @@ static ptr directive(std::string const &directive) {
 
 static ptr set_label(int64_t imm) {
     return std::shared_ptr<Llvm>(
-        new Llvm{{}, {}, {}, std::to_string(imm) + ":"});
+        new Llvm{{}, {}, {}, "L" + std::to_string(imm) + ":"});
 }
 
 #define ARITH_BINOP1(mnemonic)                                                 \
   static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
                          std::string const &arg1, std::string const &arg2) {   \
-    std::string repr = "\t %`d = " #mnemonic " nsw `t `a0, `a1";               \
+    std::string repr = "\t %`d = " #mnemonic " nsw `t %`a0, %`a1";               \
     return std::shared_ptr<Llvm>(                                              \
         new Llvm{{dest}, {type}, {{arg1, arg2}}, repr});                       \
   }                                                                            \
   static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
                          int64_t imm, std::string const &arg2) {               \
     std::string repr =                                                         \
-        "\t %`d = " #mnemonic " nsw `t " + std::to_string(imm) + ", `a1";      \
+        "\t %`d = " #mnemonic " nsw `t " + std::to_string(imm) + ", %`a1";      \
     return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg2}, repr});      \
   }                                                                            \
   static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
                          std::string const &arg1, int64_t imm) {               \
     std::string repr =                                                         \
-        "\t %`d = " #mnemonic " nsw `t `a0, " + std::to_string(imm);           \
+        "\t %`d = " #mnemonic " nsw `t %`a0, " + std::to_string(imm);           \
     return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg1}, repr});      \
+  }                                                                            \
+  static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
+                         int64_t imm1, int64_t imm2) {                         \
+    std::string repr =                                                         \
+        "\t %`d = " #mnemonic " nsw `t "+ std::to_string(imm1) + ","+ std::to_string(imm2);           \
+    return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {}, repr});      \
   }
   ARITH_BINOP1(add)
   ARITH_BINOP1(sub)
@@ -120,20 +126,20 @@ static ptr set_label(int64_t imm) {
 #define COMP(mnemonic)                                                         \
   static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
                          std::string const &arg1, std::string const &arg2) {   \
-    std::string repr = "\t %`d = icomp " #mnemonic " `t `a0, `a1";             \
+    std::string repr = "\t %`d = icmp " #mnemonic " `t %`a0, %`a1";             \
     return std::shared_ptr<Llvm>(                                              \
         new Llvm{{dest}, {type}, {{arg1, arg2}}, repr});                       \
   }                                                                            \
   static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
                          int64_t imm, std::string const &arg2) {               \
     std::string repr =                                                         \
-        "\t %`d = icomp " #mnemonic " `t " + std::to_string(imm) + ", `a1";    \
+        "\t %`d = icmp " #mnemonic " `t " + std::to_string(imm) + ", %`a1";    \
     return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg2}, repr});      \
   }                                                                            \
   static ptr mnemonic##q(std::string const &dest, std::string const &type,     \
                          std::string const &arg1, int64_t imm) {               \
     std::string repr =                                                         \
-        "\t %`d = icomp " #mnemonic " `t `a0, " + std::to_string(imm);         \
+        "\t %`d = icmp " #mnemonic " `t %`a0, " + std::to_string(imm);         \
     return std::shared_ptr<Llvm>(new Llvm{{dest}, {type}, {arg1}, repr});      \
   }
   COMP(eq)  // equal
@@ -167,12 +173,12 @@ static ptr set_label(int64_t imm) {
   static ptr global_with_value(std::string const &name, std::string const &type,
                                int64_t imm) {
     std::string repr =
-        "\t %`d = global `t " + std::to_string(imm) + ", align 8 ";
+        "@`d = global `t " + std::to_string(imm) + ", align 8 ";
     return std::unique_ptr<Llvm>(new Llvm{{name}, {type}, {}, repr});
   }
 
   static ptr global_no_value(std::string const &name, std::string const &type) {
-    std::string repr = "\t %`d = global `t, align 8 ";
+    std::string repr = "@`d = global `t, align 8 ";
     return std::unique_ptr<Llvm>(new Llvm{{name}, {type}, {}, repr});
   }
 
@@ -201,7 +207,7 @@ static ptr set_label(int64_t imm) {
     return std::unique_ptr<Llvm>(new Llvm{{}, {}, {}, repr});
   }
 
-  static ptr call(std::string const &name, std::string const &type, std::vector<std::vector<Label>> const &args) {
+  static ptr call(std::string const &name, std::string const &type, std::vector<std::vector<std::string>> const &args) {
     std::string repr = "\t call `t  @`d(";
     if (!args.empty()){
       int s = args.size();
@@ -209,7 +215,9 @@ static ptr set_label(int64_t imm) {
         if ( i == s-1 ){
           repr += args[i][0] + " %" + args[i][1];
         }
-        repr += args[i][0] + " %" + args[i][1] + ", ";
+        else{
+          repr += args[i][0] + " %" + args[i][1] + ", ";
+        }
       }
     }
     repr = repr + ")";
@@ -233,7 +241,7 @@ static ptr set_label(int64_t imm) {
         new Llvm{{name}, {type}, {}, repr});
   }
 
-  static ptr phi(std::string const &name, std::string const &type, std::vector<std::vector<Label>> const &args) {
+  static ptr phi(std::string const &name, std::string const &type, std::vector<std::vector<std::string>> const &args) {
     std::string repr = "\t %`d = phi `t ";
      if (!args.empty()){
       int s = args.size();
@@ -241,7 +249,9 @@ static ptr set_label(int64_t imm) {
         if ( i == s-1 ){
           repr += "[ %" + args[i][0] + ", %" + args[i][1] + "] ";
         }
-        repr += "[ %" + args[i][0] + ", %" + args[i][1] + "], ";
+        else{
+          repr += "[ %" + args[i][0] + ", %" + args[i][1] + "], ";
+        }
       }
     }
     return std::unique_ptr<Llvm>(

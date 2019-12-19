@@ -11,6 +11,7 @@
 #include "type_check.h"
 #include "ssa.h"
 #include "rtl_ssa.h"
+#include "ssa_llvm.h"
 
 using namespace bx;
 
@@ -67,39 +68,23 @@ int main(int argc, char *argv[]) {
       ssa_out.close();
       std::cout << ssa_file << " written.\n";
     }
-    /*
-    auto ertl_prog = make_explicit(prog.global_vars, rtl_prog);
+    auto llvm_prog = llvm_generate(prog.global_vars, ssa_prog);
+    auto llvm_file = file_root + ".ll";
     {
-      auto ertl_file = file_root + ".ertl";
-      std::ofstream ertl_out;
-      ertl_out.open(ertl_file);
-      for (auto const &gv : prog.global_vars)
-        ertl_out << "GLOBAL " << gv.first << " = " << *(gv.second->init)
-                 << " : " << gv.second->ty << "\n\n";
-      for (auto const &ertl_cbl : ertl_prog)
-        ertl_out << ertl_cbl << '\n';
-      ertl_out.close();
-      std::cout << ertl_file << " written.\n";
+      std::ofstream llvm_out;
+      llvm_out.open(llvm_file);
+      for (auto const &l : llvm_prog)
+        llvm_out << *l;
+      llvm_out.close();
+      std::cout << llvm_file << " written.\n";
     }
-    auto asm_prog = asm_generate(prog.global_vars, ertl_prog);
-    auto s_file = file_root + ".s";
-    {
-      std::ofstream s_out;
-      s_out.open(s_file);
-      for (auto const &l : asm_prog)
-        s_out << *l;
-      s_out.close();
-      std::cout << s_file << " written.\n";
-    }
-
     auto exe_file = file_root + ".exe";
-    std::string cmd = "gcc -O2 -o " + exe_file + " " + s_file + " " + rt_flags;
-    // std::cout << "Running: " << cmd << std::endl;
+    std::string cmd = "/usr/local/llvm-6.0.1/bin/clang -o " + exe_file + " " + llvm_file + " bxrt.c";
+    std::cout << "Running: " << cmd << std::endl;
     if (std::system(cmd.c_str()) != 0) {
-      std::cerr << "Could not run gcc successfully!\n";
+      std::cerr << "Could not run llvm-as successfully!\n";
       std::exit(2);
-    }
+    }  
     std::cout << exe_file << " created.\n";
-    */
   }
 }

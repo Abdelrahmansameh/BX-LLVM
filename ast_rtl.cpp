@@ -41,7 +41,7 @@ struct RtlGen : public source::StmtVisitor, public source::ExprVisitor {
 private:
   source::Program const &source_prog;
   rtl::Callable rtl_cbl;
-
+  
   /**
    * Mapping from variables to pseudos. The symbol table is a vector
    * that follows the nesting order of the blocks.
@@ -84,9 +84,11 @@ private:
   }
 
 public:
-  RtlGen(source::Program const &source_prog, std::string const &name)
+  RtlGen(source::Program const &source_prog, std::string const &name,
+        std::string type)
       : source_prog{source_prog}, rtl_cbl{name} {
     auto &cbl = source_prog.callables.at(rtl_cbl.name);
+    rtl_cbl.type = type;
     // input pseudos
     var_table.push_back({});
     for (auto const &param : cbl->args) {
@@ -381,7 +383,14 @@ public:
 rtl::Program transform(source::Program const &src_prog) {
   rtl::Program rtl_prog;
   for (auto const &cbl : src_prog.callables) {
-    RtlGen gen{src_prog, cbl.first};
+    std::string type;
+    if (cbl.second->return_ty == source::Type::INT64 || cbl.second->return_ty == source::Type::BOOL){
+      type = "i64";
+    }
+    else{
+      type = "void";
+    }
+    RtlGen gen{src_prog, cbl.first, type};
     rtl_prog.push_back(gen.deliver());
   }
   return rtl_prog;
