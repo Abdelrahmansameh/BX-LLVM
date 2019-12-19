@@ -144,6 +144,26 @@ static ptr set_label(int64_t imm) {
   COMP(sle) // signed less and equal
 #undef COMP
 
+  static ptr move(std::string const &dest, int64_t imm) {
+    std::string repr = "\t %`d = " + std::to_string(imm) ;
+    return std::unique_ptr<Llvm>(new Llvm{{dest}, {}, {}, repr});
+  }
+
+  static ptr copy(std::string const &dest, std::string const &src) {
+    std::string repr = "\t %`d = %`t" ;
+    return std::unique_ptr<Llvm>(new Llvm{{dest}, {src}, {}, repr});
+  }
+
+  static ptr load(std::string const &dest, std::string const &type, std::string const &t1, std::string const &gbl) {
+    std::string repr = "\t %`d = load `t, " + t1 + "* @" + gbl +", align 8";
+    return std::unique_ptr<Llvm>(new Llvm{{dest}, {type}, {}, repr});
+  }
+
+  static ptr store(std::string const &dest, std::string const &type, std::string const &t1, std::string const &gbl) {
+    std::string repr = "\t store `t %`d, " + t1 + "* @" + gbl +", align 8";
+    return std::unique_ptr<Llvm>(new Llvm{{dest}, {type}, {}, repr});
+  }
+
   static ptr global_with_value(std::string const &name, std::string const &type,
                                int64_t imm) {
     std::string repr =
@@ -186,7 +206,10 @@ static ptr set_label(int64_t imm) {
     if (!args.empty()){
       int s = args.size();
       for (int i=0; i<s; i++) {
-        repr = repr + args[i][0] + " " + args[i][1];
+        if ( i == s-1 ){
+          repr += args[i][0] + " %" + args[i][1];
+        }
+        repr += args[i][0] + " %" + args[i][1] + ", ";
       }
     }
     repr = repr + ")";
@@ -199,17 +222,30 @@ static ptr set_label(int64_t imm) {
     if (!args.empty()){
       int s = args.size();
       for (int i=0; i<s; i++) {
-        repr = repr + args[i][0] + " " + args[i][1];
+        if ( i == s-1 ){
+          repr += args[i][0] + " %" + args[i][1];
+        }
+        repr += args[i][0] + " %" + args[i][1] + ", ";
       }
     }
-    repr = repr + ") { \n" + body + "\n }";
+    repr += ") { \n" + body + "\n }";
     return std::unique_ptr<Llvm>(
         new Llvm{{name}, {type}, {}, repr});
   }
 
-  static ptr phi(std::string const &name, std::string const &glb_var) {
-    std::string repr = "\t %`d = alloca %" + glb_var + " align 8";
-    return std::unique_ptr<Llvm>(new Llvm{{name}, {}, {}, repr});
+  static ptr phi(std::string const &name, std::string const &type, std::vector<std::vector<Label>> const &args) {
+    std::string repr = "\t %`d = phi `t ";
+     if (!args.empty()){
+      int s = args.size();
+      for (int i=0; i<s; i++) {
+        if ( i == s-1 ){
+          repr += "[ %" + args[i][0] + ", %" + args[i][1] + "] ";
+        }
+        repr += "[ %" + args[i][0] + ", %" + args[i][1] + "], ";
+      }
+    }
+    return std::unique_ptr<Llvm>(
+        new Llvm{{name}, {type}, {}, repr});
   }
 
 

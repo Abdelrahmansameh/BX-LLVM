@@ -53,11 +53,22 @@ public:
     return prog;
   }
 
+<<<<<<< HEAD
   void visit(rtl::Label const &, ssa::Move const &mv) override {
 
   }
 
   void visit(rtl::Label const &, ssa::Copy const &cp) override {
+=======
+  void visit(ssa::Label const &, ssa::Move const &mv) override {
+    int64_t src = mv.source;
+    if (src < INT32_MIN || src > INT32_MAX)
+      append(Asm::movabsq(src, lookup(mv.dest)));
+    else
+      append(Asm::movq(src, lookup(mv.dest)));
+    append(Asm::jmp(label_translate(mv.succ)));
+  }
+>>>>>>> a3d94db124ee91a4a10583439df8e8af925b35dd
 
   }
 
