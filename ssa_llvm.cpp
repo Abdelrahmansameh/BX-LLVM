@@ -61,20 +61,7 @@ public:
     return prog;
   }
 
-  void visit(rtl::Label const &, ertl::Newframe const &nf) override {
-    // do nothing
-    append(Asm::jmp(label_translate(nf.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::Delframe const &df) override {
-    if (rmap.size() > 0) {
-      append(Asm::movq(Pseudo{reg::rbp}, Pseudo{reg::rsp}));
-      append(Asm::popq(Pseudo{reg::rbp}));
-    }
-    append(Asm::jmp(label_translate(df.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::Move const &mv) override {
+  void visit(ssa::Label const &, ssa::Move const &mv) override {
     int64_t src = mv.source;
     if (src < INT32_MIN || src > INT32_MAX)
       append(Asm::movabsq(src, lookup(mv.dest)));
