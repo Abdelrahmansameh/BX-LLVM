@@ -1,10 +1,12 @@
 GLOBAL num_fibs = 30 : int64
 
 CALLABLE "main":
-enter: L-345007520
-leave: L32766
+enter: L0
+leave: L32765
 ----
 L0:
+	move 0, 0.1
+	move 0, -1.1
 	load num_fibs+0, 0.2
 	call fib(0.2) >> -1.2
 	leave: L1,
@@ -15,10 +17,14 @@ END CALLABLE
 
 
 CALLABLE "fib":
-enter: L-345007520
-leave: L32766
+enter: L4
+leave: L32765
 ----
 L4:
+	move 0, 3.1
+	move 0, 2.1
+	move 0, 1.1
+	move 0, -1.1
 	move 0, 2.2
 	move 1, 3.2
 	call fib_aux(2.2, 3.2, 1.1) >> -1.2
@@ -30,10 +36,18 @@ END CALLABLE
 
 
 CALLABLE "fib_aux":
-enter: L-345007520
-leave: L32766
+enter: L9
+leave: L32765
 ----
 L9:
+	move 0, 8.6
+	move 0, -1.6
+	move 0, 4.3
+	move 0, 7.1
+	move 0, 6.3
+	move 0, 5.3
+	move 0, 9.6
+	move 0, 10.5
 	move 1, 7.4
 	bbranch jl, 6.3, 7.4
 	leave: L13,L12,

@@ -43,14 +43,26 @@ public:
          latest_version{latest_version}, 
          ssa_cbl{rtl_cbl.name}{
     
+    ssa_cbl.enter = rtl_cbl.enter;
+
     //Make the simple blocks
     for (auto &l : leaders){
         rtl_cbl.body.at(l)->accept(l, *this);
-        for (auto ps : this->latest_version){
-          std::vector<ssa::Pseudo> args;
-          // Add empty phi functions
-          body.insert(body.begin(), ssa::Phi::make(args, ssa::Pseudo{ps.first, ps.second}));
-          this->latest_version[ps.first] = ps.second + 1;
+        if (l.id != ssa_cbl.enter.id){
+          for (auto ps : this->latest_version){
+            std::vector<ssa::Pseudo> args;
+            // Add empty phi functions
+            body.insert(body.begin(), ssa::Phi::make(args, ssa::Pseudo{ps.first, ps.second}));
+            this->latest_version[ps.first] = ps.second + 1;
+          }
+        }
+        else{
+          for (auto ps : this->latest_version){
+            std::vector<ssa::Pseudo> args;
+            // Add empty phi functions
+            body.insert(body.begin(), ssa::Move::make(0, ssa::Pseudo{ps.first, ps.second}));
+            this->latest_version[ps.first] = ps.second + 1;
+          }
         }
         ssa_cbl.add_block(l, ssa::BBlock::make(outlabels, body));
         body.clear();
@@ -111,6 +123,7 @@ public:
     //Minimize ssa
     bool done = false;
     while (!done){
+      std::cout << ssa_cbl << '\n';
       ssa::PseudoMap<int> replace;
       done = true;
       std::cout << ssa_cbl << std::endl;

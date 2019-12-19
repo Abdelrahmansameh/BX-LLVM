@@ -30,7 +30,7 @@ class InstrCompiler : public ssa::InstrVisitor {
 private:
   source::Program::GlobalVarTable const &global_vars;
 
-  std::string funcname, exit_label;
+  std::string funcname;
 
   LlvmProgram body{};
 
@@ -41,98 +41,32 @@ public:
   InstrCompiler(source::Program::GlobalVarTable const &global_vars,
                 std::string funcname)
       : global_vars{global_vars}, funcname{funcname} {
-    exit_label = ".L" + funcname + ".exit";
+
   }
 
   LlvmProgram finalize() {
-    AsmProgram prog;
-    prog.push_back(Asm::directive(".globl " + funcname));
-    prog.push_back(Asm::directive(".section .text"));
-    prog.push_back(Asm::set_label(funcname));
-    if (rmap.size() > 0) {
-      prog.push_back(Asm::pushq(Pseudo{reg::rbp}));
-      prog.push_back(Asm::movq(Pseudo{reg::rsp}, Pseudo{reg::rbp}));
-      prog.push_back(Asm::subq(rmap.size() * 8, Pseudo{reg::rsp}));
-    }
+    LlvmProgram prog;
+    prog.push_back(Llvm::directive("define{ "));
     for (auto i = body.begin(), e = body.end(); i != e; i++)
       prog.push_back(std::move(*i));
-    prog.push_back(Asm::set_label(exit_label));
-    prog.push_back(Asm::ret());
+    prog.push_back(Llvm::directive("}"));
     return prog;
   }
 
-  void visit(rtl::Label const &, ertl::Newframe const &nf) override {
-    // do nothing
-    append(Asm::jmp(label_translate(nf.succ)));
+  void visit(rtl::Label const &, ssa::Move const &mv) override {
+
   }
 
-  void visit(rtl::Label const &, ertl::Delframe const &df) override {
-    if (rmap.size() > 0) {
-      append(Asm::movq(Pseudo{reg::rbp}, Pseudo{reg::rsp}));
-      append(Asm::popq(Pseudo{reg::rbp}));
-    }
-    append(Asm::jmp(label_translate(df.succ)));
+  void visit(rtl::Label const &, ssa::Copy const &cp) override {
+
   }
 
-  void visit(rtl::Label const &, ertl::Move const &mv) override {
-    int64_t src = mv.source;
-    if (src < INT32_MIN || src > INT32_MAX)
-      append(Asm::movabsq(src, lookup(mv.dest)));
-    else
-      append(Asm::movq(src, lookup(mv.dest)));
-    append(Asm::jmp(label_translate(mv.succ)));
+  void visit(rtl::Label const &, ssa::Load const &ld) override {
+
   }
 
-  void visit(rtl::Label const &, ertl::Copy const &cp) override {
-    append(Asm::movq(lookup(cp.src), Pseudo{reg::rax}));
-    append(Asm::movq(Pseudo{reg::rax}, lookup(cp.dest)));
-    append(Asm::jmp(label_translate(cp.succ)));
-  }
+  void visit(rtl::Label const &, ssa::Store const &st) override {
 
-  void visit(rtl::Label const &, ertl::SetMach const &sm) override {
-    Pseudo dest{ertl::to_string(sm.dest)};
-    if (sm.src == rtl::discard_pr)
-      append(Asm::xorq(dest, dest));
-    else
-      append(Asm::movq(lookup(sm.src), dest));
-    append(Asm::jmp(label_translate(sm.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::GetMach const &gm) override {
-    append(Asm::movq(Pseudo{ertl::to_string(gm.src)}, lookup(gm.dest)));
-    append(Asm::jmp(label_translate(gm.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::Load const &ld) override {
-    append(Asm::movq_mem2reg(ld.src, Pseudo{reg::r11}));
-    append(Asm::movq(Pseudo{reg::r11}, lookup(ld.dest)));
-    append(Asm::jmp(label_translate(ld.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::Store const &st) override {
-    append(Asm::movq(lookup(st.src), Pseudo{reg::r11}));
-    append(Asm::movq_reg2mem(Pseudo{reg::r11}, st.dest));
-    append(Asm::jmp(label_translate(st.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::LoadParam const &lp) override {
-    append(Asm::movq_addr2reg(16 + lp.slot * 8, Pseudo{reg::rbp},
-                              Pseudo{reg::r11}));
-    append(Asm::movq(Pseudo{reg::r11}, lookup(lp.dest)));
-    append(Asm::jmp(label_translate(lp.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::Push const &p) override {
-    append(Asm::pushq(lookup(p.arg)));
-    append(Asm::jmp(label_translate(p.succ)));
-  }
-
-  void visit(rtl::Label const &, ertl::Pop const &p) override {
-    if (p.arg == rtl::discard_pr)
-      append(Asm::addq(8UL, Pseudo{reg::rsp}));
-    else
-      append(Asm::pushq(lookup(p.arg)));
-    append(Asm::jmp(label_translate(p.succ)));
   }
 
   void visit(rtl::Label const &, ertl::Binop const &bo) override {
