@@ -44,7 +44,7 @@ public:
     exit_label = ".L" + funcname + ".exit";
   }
 
-  AsmProgram finalize() {
+  LlvmProgram finalize() {
     AsmProgram prog;
     prog.push_back(Asm::directive(".globl " + funcname));
     prog.push_back(Asm::directive(".section .text"));
