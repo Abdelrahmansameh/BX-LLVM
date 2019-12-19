@@ -187,9 +187,9 @@ static ptr set_label(int64_t imm) {
       int s = args.size();
       for (int i=0; i<s; i++) {
         if ( i == s-1 ){
-          repr += args[i][0] + " " + args[i][1];
+          repr += args[i][0] + " %" + args[i][1];
         }
-        repr += args[i][0] + " " + args[i][1] + ", ";
+        repr += args[i][0] + " %" + args[i][1] + ", ";
       }
     }
     repr = repr + ")";
@@ -203,9 +203,9 @@ static ptr set_label(int64_t imm) {
       int s = args.size();
       for (int i=0; i<s; i++) {
         if ( i == s-1 ){
-          repr += args[i][0] + " " + args[i][1];
+          repr += args[i][0] + " %" + args[i][1];
         }
-        repr += args[i][0] + " " + args[i][1] + ", ";
+        repr += args[i][0] + " %" + args[i][1] + ", ";
       }
     }
     repr += ") { \n" + body + "\n }";
@@ -219,9 +219,9 @@ static ptr set_label(int64_t imm) {
       int s = args.size();
       for (int i=0; i<s; i++) {
         if ( i == s-1 ){
-          repr += "[ " + args[i][0] + ", " + args[i][1] + "] ";
+          repr += "[ %" + args[i][0] + ", %" + args[i][1] + "] ";
         }
-        repr += "[ " + args[i][0] + ", " + args[i][1] + "], ";
+        repr += "[ %" + args[i][0] + ", %" + args[i][1] + "], ";
       }
     }
     return std::unique_ptr<Llvm>(
